@@ -46,6 +46,7 @@ export function CustomerPage({
   onCheckout,
   onConfirmPayment,
   onGoToOrders,
+  onCancelOrder,
   setError,
 }) {
   if (activeTab === 'cart') {
@@ -90,7 +91,7 @@ export function CustomerPage({
         title="Track every order"
         description="Follow payment and delivery status for each shop order."
       >
-        <OrdersScreen orders={orders} error={error} />
+        <OrdersScreen orders={orders} loading={loading} error={error} message={message} onCancelOrder={onCancelOrder} />
       </CustomerShell>
     )
   }
@@ -428,7 +429,7 @@ function PaymentScreen({ paymentSession, loading, error, onConfirmPayment, onGoT
   )
 }
 
-function OrdersScreen({ orders, error }) {
+function OrdersScreen({ orders, loading, error, message, onCancelOrder }) {
   return (
     <Card>
       <CardHeader>
@@ -439,28 +440,40 @@ function OrdersScreen({ orders, error }) {
         <CardDescription>Orders are split by shop during checkout.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3">
+        {message && <Notice>{message}</Notice>}
         {error && <Notice tone="error">{error}</Notice>}
         {orders.length === 0 ? (
           <EmptyBlock title="No orders" description="Checkout from cart to create your first order." />
         ) : (
-          orders.map((order) => (
-            <Card key={order._id} className="bg-neutral-50">
-              <CardContent className="grid gap-3 p-4 lg:grid-cols-[1fr_auto]">
-                <div>
-                  <div className="text-sm text-muted-foreground">Order #{order._id}</div>
-                  <div className="mt-1 font-medium">{order.items.map((item) => `${item.productName} x${item.quantity}`).join(', ')}</div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Badge variant="outline">
-                      <Truck className="size-3" />
-                      {order.status}
-                    </Badge>
-                    <Badge variant={order.paymentStatus === 'PAID' ? 'success' : 'secondary'}>{order.paymentMethod} - {order.paymentStatus}</Badge>
+          orders.map((order) => {
+            const canCancel = ['PENDING', 'CONFIRMED', 'PACKING'].includes(order.status)
+
+            return (
+              <Card key={order._id} className="bg-neutral-50">
+                <CardContent className="grid gap-3 p-4 lg:grid-cols-[1fr_auto]">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Order #{order._id}</div>
+                    <div className="mt-1 font-medium">{order.items.map((item) => `${item.productName} x${item.quantity}`).join(', ')}</div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Badge variant="outline">
+                        <Truck className="size-3" />
+                        {order.status}
+                      </Badge>
+                      <Badge variant={order.paymentStatus === 'PAID' ? 'success' : 'secondary'}>{order.paymentMethod} - {order.paymentStatus}</Badge>
+                    </div>
                   </div>
-                </div>
-                <div className="text-lg font-semibold">{money(order.totalAmountVnd)}</div>
-              </CardContent>
-            </Card>
-          ))
+                  <div className="grid gap-2 justify-items-start lg:justify-items-end">
+                    <div className="text-lg font-semibold">{money(order.totalAmountVnd)}</div>
+                    {canCancel && (
+                      <Button type="button" variant="destructive" size="sm" className="rounded-md" disabled={loading} onClick={() => onCancelOrder(order._id)}>
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })
         )}
       </CardContent>
     </Card>

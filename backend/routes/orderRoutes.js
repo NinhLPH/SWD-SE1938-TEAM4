@@ -41,6 +41,18 @@ router.post(
 );
 
 router.patch(
+  '/:id/cancel',
+  authenticate,
+  authorize('CUSTOMER'),
+  validateRequest(z.object({
+    params: z.object({ id: objectId }),
+    query: z.object({}),
+    body: z.object({}).optional(),
+  })),
+  OrderController.cancelMine,
+);
+
+router.patch(
   '/:id/status',
   authenticate,
   authorize('SHOP_OWNER'),

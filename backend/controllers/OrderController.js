@@ -26,9 +26,15 @@ const updateStatus = asyncHandler(async (req, res) => {
   sendSuccess(res, order, 'Order status updated');
 });
 
+const cancelMine = asyncHandler(async (req, res) => {
+  const order = await OrderService.cancelCustomerOrder(req.user._id, req.validated.params.id);
+  sendSuccess(res, order, 'Order cancelled');
+});
+
 module.exports = {
   checkout,
   listMine,
   listShopOrders,
   updateStatus,
+  cancelMine,
 };
