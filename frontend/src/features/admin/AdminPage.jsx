@@ -90,10 +90,10 @@ export function AdminPage({
         <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold">{editingAdminUserId ? 'Edit Account' : 'Create Account'}</h2>
           <form className="mt-4 grid gap-3" onSubmit={onSubmitUser}>
-            <AdminInput label="Full name" value={adminUserForm.fullName} onChange={(value) => setAdminUserForm({ ...adminUserForm, fullName: value })} required />
-            <AdminInput label="Email" value={adminUserForm.email} onChange={(value) => setAdminUserForm({ ...adminUserForm, email: value })} required />
+            <AdminInput label="Full name" value={adminUserForm.fullName} onChange={(value) => setAdminUserForm({ ...adminUserForm, fullName: value })} required minLength={2} maxLength={120} />
+            <AdminInput label="Email" type="email" value={adminUserForm.email} onChange={(value) => setAdminUserForm({ ...adminUserForm, email: value })} required maxLength={160} />
             <div className="grid gap-3 sm:grid-cols-2">
-              <AdminInput label="Phone" value={adminUserForm.phone} onChange={(value) => setAdminUserForm({ ...adminUserForm, phone: value })} />
+              <AdminInput label="Phone" type="tel" value={adminUserForm.phone} onChange={(value) => setAdminUserForm({ ...adminUserForm, phone: value })} maxLength={20} />
               <label className="grid gap-1.5 text-sm font-medium">
                 Role
                 <select className="h-10 rounded-md border border-neutral-300 px-3" value={adminUserForm.role} onChange={(event) => setAdminUserForm({ ...adminUserForm, role: event.target.value })}>
@@ -103,7 +103,7 @@ export function AdminPage({
                 </select>
               </label>
             </div>
-            <AdminInput label="Address" value={adminUserForm.address} onChange={(value) => setAdminUserForm({ ...adminUserForm, address: value })} />
+            <AdminInput label="Address" value={adminUserForm.address} onChange={(value) => setAdminUserForm({ ...adminUserForm, address: value })} maxLength={300} />
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="grid gap-1.5 text-sm font-medium">
                 Status
@@ -118,6 +118,8 @@ export function AdminPage({
                 value={adminUserForm.password}
                 onChange={(value) => setAdminUserForm({ ...adminUserForm, password: value })}
                 required={!editingAdminUserId}
+                minLength={8}
+                maxLength={120}
                 placeholder={editingAdminUserId ? 'Keep current' : ''}
               />
             </div>
@@ -225,7 +227,7 @@ export function AdminPage({
       {adminDashboard && (
         <section className="grid gap-5 xl:grid-cols-2">
           <SimpleRecentTable title="Recent Users" rows={adminDashboard.recentUsers} columns={['fullName', 'email', 'role', 'status']} />
-          <SimpleRecentTable title="Recent Orders" rows={adminDashboard.recentOrders} columns={['user.email', 'shop.name', 'totalAmountVnd', 'status']} moneyColumn="totalAmountVnd" />
+          <RecentOrdersTable rows={adminDashboard.recentOrders} />
         </section>
       )}
     </main>
@@ -255,7 +257,7 @@ function groupProductsByShop(products) {
   return Array.from(groups.values()).sort((a, b) => a.shopName.localeCompare(b.shopName))
 }
 
-function AdminInput({ label, value, onChange, type = 'text', required = false, placeholder = '' }) {
+function AdminInput({ label, value, onChange, type = 'text', required = false, placeholder = '', minLength, maxLength }) {
   return (
     <label className="grid gap-1.5 text-sm font-medium">
       {label}
@@ -266,6 +268,8 @@ function AdminInput({ label, value, onChange, type = 'text', required = false, p
         onChange={(event) => onChange(event.target.value)}
         required={required}
         placeholder={placeholder}
+        minLength={minLength}
+        maxLength={maxLength}
       />
     </label>
   )
@@ -305,4 +309,75 @@ function SimpleRecentTable({ title, rows, columns, moneyColumn }) {
       </table>
     </DataPanel>
   )
+}
+
+function RecentOrdersTable({ rows }) {
+  const checkoutLabels = getCheckoutLabels(rows)
+
+  return (
+    <DataPanel title="Recent Orders">
+      <table className="min-w-full text-sm">
+        <thead className="bg-neutral-50 text-left text-neutral-500">
+          <tr>
+            <th className="px-3 py-2">Checkout</th>
+            <th className="px-3 py-2">Order</th>
+            <th className="px-3 py-2">Customer</th>
+            <th className="px-3 py-2">Shop</th>
+            <th className="px-3 py-2">Total</th>
+            <th className="px-3 py-2">Payment</th>
+            <th className="px-3 py-2">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((order) => {
+            const checkout = checkoutLabels.get(order._id)
+            return (
+              <tr className="border-t" key={order._id}>
+                <td className="px-3 py-2">
+                  <Badge variant={checkout.isGrouped ? 'success' : 'outline'}>{checkout.label}</Badge>
+                </td>
+                <td className="px-3 py-2 font-mono text-xs">{shortId(order._id)}</td>
+                <td className="px-3 py-2">{order.user?.email || 'N/A'}</td>
+                <td className="px-3 py-2">{order.shop?.name || 'N/A'}</td>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">{money(order.totalAmountVnd)}</td>
+                <td className="px-3 py-2">{order.paymentMethod} - {order.paymentStatus}</td>
+                <td className="px-3 py-2">{order.status}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </DataPanel>
+  )
+}
+
+function getCheckoutLabels(orders) {
+  const groups = new Map()
+
+  orders.forEach((order) => {
+    const key = [
+      order.user?._id || order.user?.id || order.user?.email || order.userId || 'unknown-user',
+      order.paymentMethod || 'unknown-method',
+      order.createdAt || order._id,
+    ].join('|')
+    groups.set(key, [...(groups.get(key) || []), order._id])
+  })
+
+  const labels = new Map()
+  Array.from(groups.entries()).forEach(([key, orderIds], index) => {
+    const label = `CHK-${String(index + 1).padStart(2, '0')}`
+    orderIds.forEach((orderId) => {
+      labels.set(orderId, {
+        label,
+        key,
+        isGrouped: orderIds.length > 1,
+      })
+    })
+  })
+
+  return labels
+}
+
+function shortId(value) {
+  return value ? `#${String(value).slice(-6)}` : 'N/A'
 }

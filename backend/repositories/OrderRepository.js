@@ -48,8 +48,9 @@ const findByShop = (shopId) => Order.findAll({
   order: [['createdAt', 'DESC']],
 });
 
-const findById = (orderId) => Order.findByPk(orderId, {
+const findById = (orderId, options = {}) => Order.findByPk(orderId, {
   include: [{ model: OrderItem, as: 'items' }],
+  transaction: options.transaction,
 });
 
 const updatePaymentStatusMany = (orderIds, paymentStatus, options = {}) => Order.update(

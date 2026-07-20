@@ -115,6 +115,23 @@ const allowedTransitions = {
   CANCELLED: [],
 };
 
+const customerCancelableStatuses = ['PENDING', 'CONFIRMED', 'PACKING'];
+
+const applyCancellation = async (order, transaction) => {
+  if (!customerCancelableStatuses.includes(order.status)) {
+    throw new AppError('Order can only be cancelled before shipping', 409, 'ORDER_CANCEL_NOT_ALLOWED');
+  }
+
+  await ProductRepository.restoreStockMany(order.items, { transaction });
+  order.status = 'CANCELLED';
+  if (order.paymentStatus === 'PENDING') {
+    order.paymentStatus = 'CANCELLED';
+  }
+
+  await order.save({ transaction });
+  return OrderRepository.findById(order._id, { transaction });
+};
+
 const updateShopOrderStatus = async (ownerId, orderId, nextStatus) => {
   const shop = await ShopRepository.findApprovedByOwner(ownerId);
 
@@ -122,24 +139,36 @@ const updateShopOrderStatus = async (ownerId, orderId, nextStatus) => {
     throw new AppError('Approved shop not found for this owner', 403, 'SHOP_NOT_FOUND');
   }
 
-  const order = await OrderRepository.findById(orderId);
+  return connectDB.sequelize.transaction(async (transaction) => {
+    const order = await OrderRepository.findById(orderId, { transaction });
 
-  if (!order || order.shopId.toString() !== shop._id.toString()) {
-    throw new AppError('Order not found for this shop', 404, 'ORDER_NOT_FOUND');
-  }
+    if (!order || order.shopId.toString() !== shop._id.toString()) {
+      throw new AppError('Order not found for this shop', 404, 'ORDER_NOT_FOUND');
+    }
 
-  if (!allowedTransitions[order.status].includes(nextStatus)) {
-    throw new AppError(`Cannot change order from ${order.status} to ${nextStatus}`, 409, 'INVALID_ORDER_TRANSITION');
-  }
+    if (!allowedTransitions[order.status].includes(nextStatus)) {
+      throw new AppError(`Cannot change order from ${order.status} to ${nextStatus}`, 409, 'INVALID_ORDER_TRANSITION');
+    }
 
-  order.status = nextStatus;
-  if (nextStatus === 'CANCELLED' && order.paymentStatus === 'PENDING') {
-    order.paymentStatus = 'CANCELLED';
-  }
+    if (nextStatus === 'CANCELLED') {
+      return applyCancellation(order, transaction);
+    }
 
-  await order.save();
-  return order;
+    order.status = nextStatus;
+    await order.save({ transaction });
+    return OrderRepository.findById(order._id, { transaction });
+  });
 };
+
+const cancelCustomerOrder = (userId, orderId) => connectDB.sequelize.transaction(async (transaction) => {
+  const order = await OrderRepository.findById(orderId, { transaction });
+
+  if (!order || order.userId.toString() !== userId.toString()) {
+    throw new AppError('Order not found for this customer', 404, 'ORDER_NOT_FOUND');
+  }
+
+  return applyCancellation(order, transaction);
+});
 
 module.exports = {
   checkout,
@@ -147,5 +176,7 @@ module.exports = {
   listCustomerOrders,
   listShopOrders,
   updateShopOrderStatus,
+  cancelCustomerOrder,
   allowedTransitions,
+  customerCancelableStatuses,
 };

@@ -26,6 +26,33 @@ const emptyAdminUserForm = {
   password: '',
 }
 
+const buildAdminUserPayload = (form, isEditing) => {
+  const payload = {
+    fullName: form.fullName.trim(),
+    email: form.email.trim().toLowerCase(),
+    phone: form.phone.trim(),
+    address: form.address.trim(),
+    role: form.role,
+    status: form.status,
+    password: form.password,
+  }
+
+  if (!payload.phone) delete payload.phone
+  if (!payload.address) delete payload.address
+  if (isEditing && !payload.password) delete payload.password
+
+  return payload
+}
+
+const orderStatusTransitions = {
+  PENDING: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['PACKING', 'CANCELLED'],
+  PACKING: ['SHIPPING', 'CANCELLED'],
+  SHIPPING: ['DELIVERED'],
+  DELIVERED: [],
+  CANCELLED: [],
+}
+
 const getInitialUser = () => {
   const stored = localStorage.getItem('authUser')
   return stored ? JSON.parse(stored) : null
@@ -329,6 +356,22 @@ function App() {
     setOrders((items) => items.map((item) => (item._id === orderId ? response.data : item)))
   }
 
+  const handleCancelOrder = async (orderId) => {
+    setLoading(true)
+    setError('')
+    setMessage('')
+
+    try {
+      const response = await api.cancelMyOrder(orderId)
+      setOrders((items) => items.map((item) => (item._id === orderId ? response.data : item)))
+      setMessage('Order cancelled. Reserved stock has been returned.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleConfirmPayment = async () => {
     if (!paymentSession) return
     setLoading(true)
@@ -354,8 +397,31 @@ function App() {
     setError('')
     setMessage('')
 
-    const payload = { ...adminUserForm }
-    if (editingAdminUserId && !payload.password) delete payload.password
+    const payload = buildAdminUserPayload(adminUserForm, Boolean(editingAdminUserId))
+
+    if (!payload.fullName || payload.fullName.length < 2) {
+      setError('Full name must be at least 2 characters.')
+      setLoading(false)
+      return
+    }
+
+    if (!payload.email) {
+      setError('Email is required.')
+      setLoading(false)
+      return
+    }
+
+    if (!editingAdminUserId && payload.password.length < 8) {
+      setError('Password must be at least 8 characters.')
+      setLoading(false)
+      return
+    }
+
+    if (payload.password && payload.password.length < 8) {
+      setError('Password must be at least 8 characters.')
+      setLoading(false)
+      return
+    }
 
     try {
       if (editingAdminUserId) {
@@ -564,6 +630,7 @@ function App() {
           onCheckout={handleCheckout}
           onConfirmPayment={handleConfirmPayment}
           onGoToOrders={() => setActiveTab('orders')}
+          onCancelOrder={handleCancelOrder}
           setError={setError}
         />
       )}
@@ -673,13 +740,15 @@ function App() {
                     <td>{order.paymentMethod} · {order.paymentStatus}</td>
                     <td>
                       {isShopOwner ? (
-                        <select value={order.status} onChange={(event) => handleOrderStatus(order._id, event.target.value).catch((err) => setError(err.message))}>
+                        <select
+                          value={order.status}
+                          disabled={(orderStatusTransitions[order.status] || []).length === 0}
+                          onChange={(event) => handleOrderStatus(order._id, event.target.value).catch((err) => setError(err.message))}
+                        >
                           <option value={order.status}>{order.status}</option>
-                          <option value="CONFIRMED">CONFIRMED</option>
-                          <option value="PACKING">PACKING</option>
-                          <option value="SHIPPING">SHIPPING</option>
-                          <option value="DELIVERED">DELIVERED</option>
-                          <option value="CANCELLED">CANCELLED</option>
+                          {(orderStatusTransitions[order.status] || []).map((status) => (
+                            <option key={status} value={status}>{status}</option>
+                          ))}
                         </select>
                       ) : order.status}
                     </td>

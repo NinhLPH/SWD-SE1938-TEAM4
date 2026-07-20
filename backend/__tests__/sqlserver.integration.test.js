@@ -113,6 +113,71 @@ describe('sqlserver-backed marketplace api', () => {
     expect(await CartItem.count({ where: { cartId: cart._id } })).toBe(0);
   });
 
+  it('allows customer to cancel before shipping and restores stock', async () => {
+    const { customer, customerToken, product } = await createBaseData();
+    const cart = await Cart.create({ userId: customer._id });
+    await CartItem.create({ cartId: cart._id, productId: product._id, quantity: 2 });
+
+    const checkoutResponse = await request(app)
+      .post('/api/orders/checkout')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .send({
+        paymentMethod: 'COD',
+        shippingAddress: {
+          fullName: 'Customer',
+          phone: '0900000000',
+          address: '123 Fruit Street',
+        },
+      });
+
+    expect((await Product.findByPk(product._id)).stockQuantity).toBe(3);
+
+    const orderId = checkoutResponse.body.data.orders[0]._id;
+    const cancelResponse = await request(app)
+      .patch(`/api/orders/${orderId}/cancel`)
+      .set('Authorization', `Bearer ${customerToken}`)
+      .send({});
+
+    expect(cancelResponse.status).toBe(200);
+    expect(cancelResponse.body.data.status).toBe('CANCELLED');
+    expect(cancelResponse.body.data.paymentStatus).toBe('CANCELLED');
+    expect((await Product.findByPk(product._id)).stockQuantity).toBe(5);
+  });
+
+  it('prevents customer cancellation after shipping', async () => {
+    const { customer, customerToken, product } = await createBaseData();
+    const order = await Order.create({
+      userId: customer._id,
+      shopId: product.shopId,
+      totalAmountVnd: 60000,
+      paymentMethod: 'COD',
+      paymentStatus: 'PENDING',
+      status: 'SHIPPING',
+      shippingAddress: {
+        fullName: 'Customer',
+        phone: '0900000000',
+        address: '123 Fruit Street',
+      },
+    });
+    await OrderItem.create({
+      orderId: order._id,
+      productId: product._id,
+      productName: product.name,
+      unitPriceVnd: product.priceVnd,
+      quantity: 2,
+      lineTotalVnd: 60000,
+    });
+
+    const response = await request(app)
+      .patch(`/api/orders/${order._id}/cancel`)
+      .set('Authorization', `Bearer ${customerToken}`)
+      .send({});
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe('ORDER_CANCEL_NOT_ALLOWED');
+    expect((await Product.findByPk(product._id)).stockQuantity).toBe(5);
+  });
+
   it('allows admin to view products from every shop', async () => {
     const { adminToken } = await createBaseData();
 

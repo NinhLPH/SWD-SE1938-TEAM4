@@ -104,6 +104,14 @@ const deductStockAtomic = async (productId, quantity, options = {}) => {
   return { modifiedCount: affectedCount };
 };
 
+const restoreStockMany = (items, options = {}) => Promise.all(items.map((item) => Product.increment(
+  { stockQuantity: Number(item.quantity) },
+  {
+    where: { id: item.productId },
+    transaction: options.transaction,
+  },
+)));
+
 const listAllForAdmin = () => Product.findAll({
   include: [
     { model: Shop, as: 'shop', attributes: ['id', 'name'] },
@@ -122,5 +130,6 @@ module.exports = {
   searchAvailable,
   findAvailableById,
   deductStockAtomic,
+  restoreStockMany,
   listAllForAdmin,
 };

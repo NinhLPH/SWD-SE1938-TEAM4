@@ -19,7 +19,12 @@ const request = async (path, options = {}) => {
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(payload?.message || 'Request failed');
+    const fieldErrors = payload?.error?.details?.fieldErrors;
+    const firstFieldError = fieldErrors
+      ? Object.entries(fieldErrors).find(([, messages]) => messages?.length)
+      : null;
+    const detail = firstFieldError ? `${firstFieldError[0]}: ${firstFieldError[1][0]}` : '';
+    throw new Error(detail || payload?.message || 'Request failed');
   }
 
   return payload;
@@ -74,6 +79,9 @@ export const api = {
   updateOrderStatus: (orderId, body) => request(`/orders/${orderId}/status`, {
     method: 'PATCH',
     body: JSON.stringify(body),
+  }),
+  cancelMyOrder: (orderId) => request(`/orders/${orderId}/cancel`, {
+    method: 'PATCH',
   }),
   getAdminDashboard: () => request('/admin/dashboard'),
   confirmMockPayment: (transactionId) => request(`/payments/mock/${transactionId}/confirm`, {
