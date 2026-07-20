@@ -1,120 +1,74 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const connectDB = require('../config/db');
+const { idField, withLegacyJson } = require('./modelUtils');
 
-const orderItemSchema = new mongoose.Schema(
-  {
-    product: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product',
-      required: true,
+const Order = connectDB.sequelize.define('Order', {
+  id: idField,
+  userId: { type: DataTypes.STRING(24), allowNull: false },
+  shopId: { type: DataTypes.STRING(24), allowNull: false },
+  totalAmountVnd: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    validate: { isInt: true, min: 0 },
+  },
+  paymentMethod: {
+    type: DataTypes.ENUM('COD', 'ONLINE'),
+    allowNull: false,
+  },
+  paymentStatus: {
+    type: DataTypes.ENUM('PENDING', 'PAID', 'FAILED', 'CANCELLED'),
+    allowNull: false,
+    defaultValue: 'PENDING',
+  },
+  status: {
+    type: DataTypes.ENUM('PENDING', 'CONFIRMED', 'PACKING', 'SHIPPING', 'DELIVERED', 'CANCELLED'),
+    allowNull: false,
+    defaultValue: 'PENDING',
+  },
+  shippingFullName: { type: DataTypes.STRING(120), allowNull: false },
+  shippingPhone: { type: DataTypes.STRING(20), allowNull: false },
+  shippingAddressText: { type: DataTypes.STRING(300), allowNull: false },
+  shippingAddress: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return {
+        fullName: this.getDataValue('shippingFullName'),
+        phone: this.getDataValue('shippingPhone'),
+        address: this.getDataValue('shippingAddressText'),
+      };
     },
-    productName: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 150,
-    },
-    imageUrl: {
-      type: String,
-      trim: true,
-      maxlength: 1000,
-    },
-    unitPriceVnd: {
-      type: Number,
-      required: true,
-      min: 0,
-      validate: {
-        validator: Number.isInteger,
-        message: 'unitPriceVnd must be an integer amount in VND',
-      },
-    },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1,
-      validate: {
-        validator: Number.isInteger,
-        message: 'quantity must be an integer',
-      },
-    },
-    lineTotalVnd: {
-      type: Number,
-      required: true,
-      min: 0,
-      validate: {
-        validator: Number.isInteger,
-        message: 'lineTotalVnd must be an integer amount in VND',
-      },
+    set(value) {
+      this.setDataValue('shippingFullName', value.fullName);
+      this.setDataValue('shippingPhone', value.phone);
+      this.setDataValue('shippingAddressText', value.address);
     },
   },
-  {
-    _id: true,
-  },
-);
+}, {
+  tableName: 'orders',
+  indexes: [
+    { fields: ['user_id', 'status', 'created_at'] },
+    { fields: ['shop_id', 'status', 'created_at'] },
+    { fields: ['payment_status', 'created_at'] },
+  ],
+});
 
-const orderSchema = new mongoose.Schema(
-  {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-      index: true,
-    },
-    shop: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Shop',
-      required: true,
-      index: true,
-    },
-    items: {
-      type: [orderItemSchema],
-      required: true,
-      validate: {
-        validator(items) {
-          return items.length > 0;
-        },
-        message: 'Order must contain at least one item',
-      },
-    },
-    totalAmountVnd: {
-      type: Number,
-      required: true,
-      min: 0,
-      validate: {
-        validator: Number.isInteger,
-        message: 'totalAmountVnd must be an integer amount in VND',
-      },
-    },
-    paymentMethod: {
-      type: String,
-      enum: ['COD', 'ONLINE'],
-      required: true,
-      index: true,
-    },
-    paymentStatus: {
-      type: String,
-      enum: ['PENDING', 'PAID', 'FAILED', 'CANCELLED'],
-      default: 'PENDING',
-      index: true,
-    },
-    status: {
-      type: String,
-      enum: ['PENDING', 'CONFIRMED', 'PACKING', 'SHIPPING', 'DELIVERED', 'CANCELLED'],
-      default: 'PENDING',
-      index: true,
-    },
-    shippingAddress: {
-      fullName: { type: String, required: true, trim: true, maxlength: 120 },
-      phone: { type: String, required: true, trim: true, maxlength: 20 },
-      address: { type: String, required: true, trim: true, maxlength: 300 },
-    },
-  },
-  {
-    timestamps: true,
-  },
-);
+const OrderItem = connectDB.sequelize.define('OrderItem', {
+  id: idField,
+  orderId: { type: DataTypes.STRING(24), allowNull: false },
+  productId: { type: DataTypes.STRING(24), allowNull: false },
+  productName: { type: DataTypes.STRING(150), allowNull: false },
+  imageUrl: DataTypes.STRING(1000),
+  unitPriceVnd: { type: DataTypes.INTEGER, allowNull: false },
+  quantity: { type: DataTypes.INTEGER, allowNull: false },
+  lineTotalVnd: { type: DataTypes.INTEGER, allowNull: false },
+}, {
+  tableName: 'order_items',
+  indexes: [
+    { fields: ['order_id'] },
+    { fields: ['product_id'] },
+  ],
+});
 
-orderSchema.index({ user: 1, status: 1, createdAt: -1 });
-orderSchema.index({ shop: 1, status: 1, createdAt: -1 });
-orderSchema.index({ paymentStatus: 1, createdAt: -1 });
+Order.OrderItem = withLegacyJson(OrderItem);
 
-module.exports = mongoose.model('Order', orderSchema);
+module.exports = withLegacyJson(Order);

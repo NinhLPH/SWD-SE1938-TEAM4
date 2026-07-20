@@ -1,107 +1,117 @@
-const Product = require('../models/Product');
+const { Op } = require('sequelize');
+const { Category, Product, Shop, User } = require('../models');
 
-const create = (data) => Product.create(data);
+const includes = [
+  { model: Shop, as: 'shop', attributes: ['id', 'name', 'ownerId', 'status', 'address', 'phone', 'description'] },
+  { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
+];
 
-const findById = (id) => Product.findById(id)
-  .populate('shop', 'name owner status')
-  .populate('category', 'name slug');
+const create = (data, options = {}) => Product.create(data, options);
+
+const findById = (id) => Product.findByPk(id, { include: includes });
 
 const findOwnerProductById = (id, ownerId) => Product.findOne({
-  _id: id,
-  createdBy: ownerId,
-  status: { $ne: 'DELETED' },
+  where: {
+    id,
+    createdById: ownerId,
+    status: { [Op.ne]: 'DELETED' },
+  },
 });
 
-const updateById = (id, data) => Product.findByIdAndUpdate(
-  id,
-  data,
-  { returnDocument: 'after', runValidators: true },
-).populate('category', 'name slug');
+const updateById = async (id, data, options = {}) => {
+  const product = await Product.findByPk(id);
+  if (!product) return null;
+  await product.update(data, options);
+  return Product.findByPk(id, { include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'slug'] }] });
+};
 
 const listByShop = ({ shopId, page, limit }) => {
-  const skip = (page - 1) * limit;
-  const filter = { shop: shopId, status: { $ne: 'DELETED' } };
+  const offset = (page - 1) * limit;
+  const where = { shopId, status: { [Op.ne]: 'DELETED' } };
 
   return Promise.all([
-    Product.find(filter)
-      .populate('category', 'name slug')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit),
-    Product.countDocuments(filter),
+    Product.findAll({
+      where,
+      include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'slug'] }],
+      order: [['createdAt', 'DESC']],
+      offset,
+      limit,
+    }),
+    Product.count({ where }),
   ]);
 };
 
 const searchAvailable = async ({ keyword, categoryId, shopId, minPriceVnd, maxPriceVnd, inStock, minRating, page, limit, sort }) => {
-  const skip = (page - 1) * limit;
-  const filter = {
-    status: 'ACTIVE',
-  };
+  const offset = (page - 1) * limit;
+  const where = { status: 'ACTIVE' };
 
   if (keyword) {
-    filter.$text = { $search: keyword };
+    where[Op.or] = [
+      { name: { [Op.like]: `%${keyword}%` } },
+      { description: { [Op.like]: `%${keyword}%` } },
+      { origin: { [Op.like]: `%${keyword}%` } },
+    ];
   }
-  if (categoryId) {
-    filter.category = categoryId;
-  }
-  if (shopId) {
-    filter.shop = shopId;
-  }
+  if (categoryId) where.categoryId = categoryId;
+  if (shopId) where.shopId = shopId;
   if (minPriceVnd !== undefined || maxPriceVnd !== undefined) {
-    filter.priceVnd = {};
-    if (minPriceVnd !== undefined) {
-      filter.priceVnd.$gte = minPriceVnd;
-    }
-    if (maxPriceVnd !== undefined) {
-      filter.priceVnd.$lte = maxPriceVnd;
-    }
+    where.priceVnd = {};
+    if (minPriceVnd !== undefined) where.priceVnd[Op.gte] = minPriceVnd;
+    if (maxPriceVnd !== undefined) where.priceVnd[Op.lte] = maxPriceVnd;
   }
-  if (inStock === true) {
-    filter.stockQuantity = { $gt: 0 };
-  }
-  if (minRating !== undefined) {
-    filter.averageRating = { $gte: minRating };
-  }
+  if (inStock === true) where.stockQuantity = { [Op.gt]: 0 };
+  if (minRating !== undefined) where.averageRating = { [Op.gte]: minRating };
 
-  const sortMap = {
-    newest: { createdAt: -1 },
-    price_asc: { priceVnd: 1 },
-    price_desc: { priceVnd: -1 },
-    rating_desc: { averageRating: -1 },
+  const orderMap = {
+    newest: [['createdAt', 'DESC']],
+    price_asc: [['priceVnd', 'ASC']],
+    price_desc: [['priceVnd', 'DESC']],
+    rating_desc: [['averageRating', 'DESC']],
   };
-  const sortBy = keyword ? { score: { $meta: 'textScore' } } : (sortMap[sort] || sortMap.newest);
-  const projection = keyword ? { score: { $meta: 'textScore' } } : {};
-
-  const query = Product.find(filter, projection)
-    .populate('shop', 'name address status')
-    .populate('category', 'name slug')
-    .sort(sortBy)
-    .skip(skip)
-    .limit(limit);
 
   const [items, total] = await Promise.all([
-    query,
-    Product.countDocuments(filter),
+    Product.findAll({
+      where,
+      include: includes,
+      order: orderMap[sort] || orderMap.newest,
+      offset,
+      limit,
+    }),
+    Product.count({ where }),
   ]);
 
   return [items, total];
 };
 
-const findAvailableById = (id) => Product.findOne({ _id: id, status: 'ACTIVE' })
-  .populate('shop', 'name description address phone status')
-  .populate('category', 'name slug');
+const findAvailableById = (id) => Product.findOne({
+  where: { id, status: 'ACTIVE' },
+  include: includes,
+});
 
-const deductStockAtomic = (productId, quantity, options = {}) => Product.updateOne(
-  {
-    _id: productId,
-    status: 'ACTIVE',
-    stockQuantity: { $gte: quantity },
-  },
-  {
-    $inc: { stockQuantity: -quantity },
-  },
-  options,
-);
+const deductStockAtomic = async (productId, quantity, options = {}) => {
+  const [affectedCount] = await Product.update(
+    { stockQuantity: Product.sequelize.literal(`stock_quantity - ${Number(quantity)}`) },
+    {
+      where: {
+        id: productId,
+        status: 'ACTIVE',
+        stockQuantity: { [Op.gte]: quantity },
+      },
+      transaction: options.transaction,
+    },
+  );
+
+  return { modifiedCount: affectedCount };
+};
+
+const listAllForAdmin = () => Product.findAll({
+  include: [
+    { model: Shop, as: 'shop', attributes: ['id', 'name'] },
+    { model: Category, as: 'category', attributes: ['id', 'name'] },
+    { model: User, as: 'createdBy', attributes: ['id', 'fullName', 'email'] },
+  ],
+  order: [['createdAt', 'DESC']],
+});
 
 module.exports = {
   create,
@@ -112,4 +122,5 @@ module.exports = {
   searchAvailable,
   findAvailableById,
   deductStockAtomic,
+  listAllForAdmin,
 };

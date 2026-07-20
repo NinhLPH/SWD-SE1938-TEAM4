@@ -1,11 +1,6 @@
 const bcrypt = require('bcryptjs');
-const User = require('../models/User');
-const Shop = require('../models/Shop');
-const Category = require('../models/Category');
-const Product = require('../models/Product');
-const Cart = require('../models/Cart');
-const Order = require('../models/Order');
-const Payment = require('../models/Payment');
+const { Cart, Category, Order, Payment, Product, Shop, User } = require('../models');
+const ProductRepository = require('../repositories/ProductRepository');
 
 const getDashboard = async () => {
   const [
@@ -20,23 +15,34 @@ const getDashboard = async () => {
     recentShops,
     recentProducts,
     recentOrders,
+    revenue,
   ] = await Promise.all([
-    User.countDocuments(),
-    Shop.countDocuments(),
-    Category.countDocuments(),
-    Product.countDocuments(),
-    Cart.countDocuments(),
-    Order.countDocuments(),
-    Payment.countDocuments(),
-    User.find().select('fullName email role status createdAt').sort({ createdAt: -1 }).limit(10),
-    Shop.find().populate('owner', 'fullName email').sort({ createdAt: -1 }).limit(10),
-    Product.find().populate('shop', 'name').populate('category', 'name').sort({ createdAt: -1 }).limit(12),
-    Order.find().populate('user', 'fullName email').populate('shop', 'name').sort({ createdAt: -1 }).limit(10),
-  ]);
-
-  const [revenue] = await Order.aggregate([
-    { $match: { paymentStatus: 'PAID' } },
-    { $group: { _id: null, totalPaidVnd: { $sum: '$totalAmountVnd' } } },
+    User.count(),
+    Shop.count(),
+    Category.count(),
+    Product.count(),
+    Cart.count(),
+    Order.count(),
+    Payment.count(),
+    User.findAll({ attributes: ['id', 'fullName', 'email', 'role', 'status', 'createdAt'], order: [['createdAt', 'DESC']], limit: 10 }),
+    Shop.findAll({ include: [{ model: User, as: 'owner', attributes: ['id', 'fullName', 'email'] }], order: [['createdAt', 'DESC']], limit: 10 }),
+    Product.findAll({
+      include: [
+        { model: Shop, as: 'shop', attributes: ['id', 'name'] },
+        { model: Category, as: 'category', attributes: ['id', 'name'] },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: 12,
+    }),
+    Order.findAll({
+      include: [
+        { model: User, as: 'user', attributes: ['id', 'fullName', 'email'] },
+        { model: Shop, as: 'shop', attributes: ['id', 'name'] },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: 10,
+    }),
+    Order.sum('totalAmountVnd', { where: { paymentStatus: 'PAID' } }),
   ]);
 
   return {
@@ -48,7 +54,7 @@ const getDashboard = async () => {
       carts,
       orders,
       payments,
-      totalPaidVnd: revenue?.totalPaidVnd || 0,
+      totalPaidVnd: revenue || 0,
     },
     recentUsers,
     recentShops,
@@ -57,15 +63,12 @@ const getDashboard = async () => {
   };
 };
 
-const listUsers = () => User.find()
-  .select('fullName email phone address role status createdAt updatedAt')
-  .sort({ createdAt: -1 });
+const listUsers = () => User.findAll({
+  attributes: ['id', 'fullName', 'email', 'phone', 'address', 'role', 'status', 'createdAt', 'updatedAt'],
+  order: [['createdAt', 'DESC']],
+});
 
-const listProducts = () => Product.find()
-  .populate('shop', 'name')
-  .populate('category', 'name')
-  .populate('createdBy', 'fullName email')
-  .sort({ createdAt: -1 });
+const listProducts = () => ProductRepository.listAllForAdmin();
 
 const createUser = async (payload) => {
   const passwordHash = await bcrypt.hash(payload.password, 10);
@@ -87,17 +90,18 @@ const updateUser = async (userId, payload) => {
     delete update.password;
   }
 
-  return User.findByIdAndUpdate(userId, update, {
-    returnDocument: 'after',
-    runValidators: true,
-  }).select('-passwordHash');
+  await User.update(update, { where: { id: userId } });
+  return User.findByPk(userId, {
+    attributes: { exclude: ['passwordHash'] },
+  });
 };
 
-const lockUser = (userId) => User.findByIdAndUpdate(
-  userId,
-  { status: 'LOCKED' },
-  { returnDocument: 'after', runValidators: true },
-).select('-passwordHash');
+const lockUser = async (userId) => {
+  await User.update({ status: 'LOCKED' }, { where: { id: userId } });
+  return User.findByPk(userId, {
+    attributes: { exclude: ['passwordHash'] },
+  });
+};
 
 module.exports = {
   getDashboard,

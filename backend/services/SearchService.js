@@ -1,5 +1,5 @@
 const ProductRepository = require('../repositories/ProductRepository');
-const Category = require('../models/Category');
+const { Category } = require('../models');
 const AppError = require('../utils/AppError');
 
 const searchProducts = async (query) => {
@@ -32,7 +32,10 @@ const getProductDetail = async (productId) => {
   return product;
 };
 
-const listCategories = () => Category.find({ status: 'ACTIVE' }).sort({ name: 1 });
+const listCategories = () => Category.findAll({
+  where: { status: 'ACTIVE' },
+  order: [['name', 'ASC']],
+});
 
 module.exports = {
   searchProducts,

@@ -1,4 +1,6 @@
-import { Boxes, CircleDollarSign, RefreshCw, ShieldCheck, ShoppingBag, Store, Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowLeft, ArrowRight, Boxes, CircleDollarSign, RefreshCw, ShieldCheck, ShoppingBag, Store, Users } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 const statIcons = {
@@ -42,6 +44,11 @@ export function AdminPage({
   onRefreshDashboard,
   onRefreshProducts,
 }) {
+  const [shopProductPage, setShopProductPage] = useState(0)
+  const productGroups = useMemo(() => groupProductsByShop(adminProducts), [adminProducts])
+  const safeShopPage = Math.min(shopProductPage, Math.max(productGroups.length - 1, 0))
+  const visibleProductGroup = productGroups[safeShopPage]
+
   return (
     <main className="grid gap-5 p-6">
       <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
@@ -154,26 +161,65 @@ export function AdminPage({
 
       <DataPanel
         title="All Products"
-        action={<Button variant="outline" className="rounded-md" onClick={onRefreshProducts}><RefreshCw className="size-4" />Refresh Products</Button>}
+        action={(
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" className="rounded-md" disabled={safeShopPage <= 0} onClick={() => setShopProductPage((page) => Math.max(page - 1, 0))} title="Previous shop">
+              <ArrowLeft className="size-4" />
+              Prev shop
+            </Button>
+            <Badge variant="outline" className="h-8 px-2.5">
+              Shop {productGroups.length ? safeShopPage + 1 : 0} / {productGroups.length}
+            </Badge>
+            <Button variant="outline" size="sm" className="rounded-md" disabled={safeShopPage >= productGroups.length - 1} onClick={() => setShopProductPage((page) => Math.min(page + 1, productGroups.length - 1))} title="Next shop">
+              Next shop
+              <ArrowRight className="size-4" />
+            </Button>
+            <Button variant="outline" className="rounded-md" onClick={onRefreshProducts}><RefreshCw className="size-4" />Refresh</Button>
+          </div>
+        )}
       >
-        <table className="min-w-full text-sm">
-          <thead className="bg-neutral-50 text-left text-neutral-500">
-            <tr><th className="px-3 py-2">Name</th><th className="px-3 py-2">Shop</th><th className="px-3 py-2">Category</th><th className="px-3 py-2">Owner</th><th className="px-3 py-2">Price</th><th className="px-3 py-2">Stock</th><th className="px-3 py-2">Status</th></tr>
-          </thead>
-          <tbody>
-            {adminProducts.map((product) => (
-              <tr className="border-t" key={product._id}>
-                <td className="px-3 py-2 font-medium">{product.name}</td>
-                <td className="px-3 py-2">{product.shop?.name}</td>
-                <td className="px-3 py-2">{product.category?.name}</td>
-                <td className="px-3 py-2">{product.createdBy?.email}</td>
-                <td className="px-3 py-2">{money(product.priceVnd)}</td>
-                <td className="px-3 py-2">{product.stockQuantity}</td>
-                <td className="px-3 py-2">{product.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {visibleProductGroup ? (
+          <div>
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b bg-neutral-50 px-4 py-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold">{visibleProductGroup.shopName}</h3>
+                  <Badge variant="secondary">{visibleProductGroup.products.length} products</Badge>
+                  <Badge variant="outline">Stock {visibleProductGroup.totalStock}</Badge>
+                </div>
+                <p className="mt-1 text-xs text-neutral-500">{visibleProductGroup.ownerEmail}</p>
+              </div>
+              <div className="text-right text-sm font-semibold">{money(visibleProductGroup.totalValue)}</div>
+            </div>
+            <table className="min-w-full text-sm">
+              <thead className="bg-white text-left text-neutral-500">
+                <tr>
+                  <th className="px-4 py-3">Product</th>
+                  <th className="px-4 py-3">Price</th>
+                  <th className="px-4 py-3">Stock</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleProductGroup.products.map((product) => (
+                  <tr className="border-t align-top" key={product._id}>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{product.name}</div>
+                      <div className="mt-1 text-xs text-neutral-500">{product.category?.name || 'No category'}</div>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 font-medium">{money(product.priceVnd)}</td>
+                    <td className="whitespace-nowrap px-4 py-3">{product.stockQuantity}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={product.status === 'ACTIVE' ? 'success' : 'secondary'}>{product.status}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="px-4 py-8 text-center text-sm text-neutral-500">No products loaded.</div>
+        )}
       </DataPanel>
 
       {adminDashboard && (
@@ -184,6 +230,29 @@ export function AdminPage({
       )}
     </main>
   )
+}
+
+function groupProductsByShop(products) {
+  const groups = new Map()
+
+  products.forEach((product) => {
+    const shopId = product.shop?._id || product.shop?.id || product.shop?.name || 'unknown-shop'
+    const existing = groups.get(shopId) || {
+      shopId,
+      shopName: product.shop?.name || 'No shop',
+      ownerEmail: product.createdBy?.email || product.createdByEmail || product.shop?.owner?.email || 'No owner',
+      products: [],
+      totalStock: 0,
+      totalValue: 0,
+    }
+
+    existing.products.push(product)
+    existing.totalStock += Number(product.stockQuantity || 0)
+    existing.totalValue += Number(product.priceVnd || 0) * Number(product.stockQuantity || 0)
+    groups.set(shopId, existing)
+  })
+
+  return Array.from(groups.values()).sort((a, b) => a.shopName.localeCompare(b.shopName))
 }
 
 function AdminInput({ label, value, onChange, type = 'text', required = false, placeholder = '' }) {

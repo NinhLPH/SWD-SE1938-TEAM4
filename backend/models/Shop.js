@@ -1,50 +1,38 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const connectDB = require('../config/db');
+const { idField, withLegacyJson } = require('./modelUtils');
 
-const shopSchema = new mongoose.Schema(
-  {
-    owner: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-      index: true,
-    },
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-      minlength: 2,
-      maxlength: 150,
-    },
-    description: {
-      type: String,
-      trim: true,
-      maxlength: 1000,
-    },
-    address: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 300,
-    },
-    phone: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 20,
-    },
-    status: {
-      type: String,
-      enum: ['PENDING', 'APPROVED', 'REJECTED', 'LOCKED'],
-      default: 'APPROVED',
-      index: true,
-    },
+const Shop = connectDB.sequelize.define('Shop', {
+  id: idField,
+  ownerId: {
+    type: DataTypes.STRING(24),
+    allowNull: false,
   },
-  {
-    timestamps: true,
+  name: {
+    type: DataTypes.STRING(150),
+    allowNull: false,
+    validate: { len: [2, 150] },
   },
-);
+  description: DataTypes.STRING(1000),
+  address: {
+    type: DataTypes.STRING(300),
+    allowNull: false,
+  },
+  phone: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+  },
+  status: {
+    type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED', 'LOCKED'),
+    allowNull: false,
+    defaultValue: 'APPROVED',
+  },
+}, {
+  tableName: 'shops',
+  indexes: [
+    { fields: ['owner_id', 'status'] },
+    { fields: ['status'] },
+  ],
+});
 
-shopSchema.index({ owner: 1, status: 1 });
-shopSchema.index({ name: 'text', description: 'text' });
-
-module.exports = mongoose.model('Shop', shopSchema);
+module.exports = withLegacyJson(Shop);
