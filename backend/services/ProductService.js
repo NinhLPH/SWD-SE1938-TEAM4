@@ -16,9 +16,9 @@ const createProduct = async (ownerId, payload) => {
   const shop = await ensureOwnerShop(ownerId);
 
   return ProductRepository.create({
-    shop: shop._id,
-    category: payload.categoryId,
-    createdBy: ownerId,
+    shopId: shop._id,
+    categoryId: payload.categoryId,
+    createdById: ownerId,
     name: payload.name,
     description: payload.description,
     origin: payload.origin,
@@ -56,11 +56,6 @@ const updateMyProduct = async (ownerId, productId, payload) => {
   const update = {
     ...payload,
   };
-
-  if (payload.categoryId) {
-    update.category = payload.categoryId;
-    delete update.categoryId;
-  }
 
   return ProductRepository.updateById(product._id, update);
 };

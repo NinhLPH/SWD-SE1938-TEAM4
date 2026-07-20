@@ -1,46 +1,45 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const connectDB = require('../config/db');
+const { idField, withLegacyJson } = require('./modelUtils');
 
-const cartItemSchema = new mongoose.Schema(
-  {
-    product: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product',
-      required: true,
-    },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1,
-      validate: {
-        validator: Number.isInteger,
-        message: 'quantity must be an integer',
-      },
-    },
+const Cart = connectDB.sequelize.define('Cart', {
+  id: idField,
+  userId: {
+    type: DataTypes.STRING(24),
+    allowNull: false,
+    unique: true,
   },
-  {
-    _id: true,
-    timestamps: true,
-  },
-);
+}, {
+  tableName: 'carts',
+  indexes: [
+    { fields: ['user_id'], unique: true },
+  ],
+});
 
-const cartSchema = new mongoose.Schema(
-  {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    items: {
-      type: [cartItemSchema],
-      default: [],
-    },
+const CartItem = connectDB.sequelize.define('CartItem', {
+  id: idField,
+  cartId: {
+    type: DataTypes.STRING(24),
+    allowNull: false,
   },
-  {
-    timestamps: true,
+  productId: {
+    type: DataTypes.STRING(24),
+    allowNull: false,
   },
-);
+  quantity: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    validate: { min: 1 },
+  },
+}, {
+  tableName: 'cart_items',
+  indexes: [
+    { fields: ['cart_id'] },
+    { fields: ['product_id'] },
+    { fields: ['cart_id', 'product_id'], unique: true },
+  ],
+});
 
-cartSchema.index({ user: 1 }, { unique: true });
-cartSchema.index({ 'items.product': 1 });
+Cart.CartItem = withLegacyJson(CartItem);
 
-module.exports = mongoose.model('Cart', cartSchema);
+module.exports = withLegacyJson(Cart);

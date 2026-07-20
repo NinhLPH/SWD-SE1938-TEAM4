@@ -1,34 +1,31 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const connectDB = require('../config/db');
+const { idField, withLegacyJson } = require('./modelUtils');
 
-const categorySchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-      maxlength: 100,
-    },
-    slug: {
-      type: String,
-      required: true,
-      lowercase: true,
-      trim: true,
-      maxlength: 120,
-    },
-    status: {
-      type: String,
-      enum: ['ACTIVE', 'INACTIVE'],
-      default: 'ACTIVE',
-      index: true,
-    },
+const Category = connectDB.sequelize.define('Category', {
+  id: idField,
+  name: {
+    type: DataTypes.STRING(100),
+    allowNull: false,
+    unique: true,
   },
-  {
-    timestamps: true,
+  slug: {
+    type: DataTypes.STRING(120),
+    allowNull: false,
+    unique: true,
   },
-);
+  status: {
+    type: DataTypes.ENUM('ACTIVE', 'INACTIVE'),
+    allowNull: false,
+    defaultValue: 'ACTIVE',
+  },
+}, {
+  tableName: 'categories',
+  indexes: [
+    { fields: ['slug'], unique: true },
+    { fields: ['status'] },
+    { fields: ['name'] },
+  ],
+});
 
-categorySchema.index({ slug: 1 }, { unique: true });
-categorySchema.index({ name: 'text' });
-
-module.exports = mongoose.model('Category', categorySchema);
+module.exports = withLegacyJson(Category);

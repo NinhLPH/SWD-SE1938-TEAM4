@@ -12,7 +12,7 @@ const authenticate = async (req, res, next) => {
     }
 
     const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
-    const user = await User.findById(payload.sub).select('-passwordHash');
+    const user = await User.findByPk(payload.sub);
 
     if (!user || user.status !== 'ACTIVE') {
       throw new AppError('User is inactive or no longer exists', 401, 'AUTH_INVALID');

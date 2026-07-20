@@ -1,10 +1,12 @@
-const User = require('../models/User');
+const { User } = require('../models');
 
-const create = (data) => User.create(data);
+const create = (data, options = {}) => User.create(data, options);
 
-const findByEmail = (email) => User.findOne({ email: email.toLowerCase() });
+const findByEmail = (email) => User.findOne({
+  where: { email: email.toLowerCase() },
+});
 
-const findById = (id) => User.findById(id);
+const findById = (id, options = {}) => User.findByPk(id, options);
 
 module.exports = {
   create,

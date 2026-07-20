@@ -18,14 +18,15 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.7.4",
+    "sequelize": "^6.37.8",
+    "tedious": "^20.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
     "jest": "^30.4.2",
-    "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.1.14",
+    "sqlite3": "^6.0.1",
     "supertest": "^7.2.2"
   }
 }

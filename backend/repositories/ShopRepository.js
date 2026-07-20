@@ -1,11 +1,13 @@
-const Shop = require('../models/Shop');
+const { Shop } = require('../models');
 
 const findApprovedByOwner = (ownerId) => Shop.findOne({
-  owner: ownerId,
-  status: 'APPROVED',
+  where: {
+    ownerId,
+    status: 'APPROVED',
+  },
 });
 
-const findById = (id) => Shop.findById(id);
+const findById = (id) => Shop.findByPk(id);
 
 module.exports = {
   findApprovedByOwner,

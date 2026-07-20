@@ -3,7 +3,7 @@ const PaymentRepository = require('../repositories/PaymentRepository');
 const OrderRepository = require('../repositories/OrderRepository');
 const AppError = require('../utils/AppError');
 
-const createCheckoutPayment = async ({ userId, orders, paymentMethod, session }) => {
+const createCheckoutPayment = async ({ userId, orders, paymentMethod, transaction }) => {
   const amountVnd = orders.reduce((sum, order) => sum + order.totalAmountVnd, 0);
   const provider = paymentMethod === 'COD' ? 'COD' : 'MOCK';
   const prefix = paymentMethod === 'COD' ? 'COD' : 'MOCK';
@@ -15,7 +15,7 @@ const createCheckoutPayment = async ({ userId, orders, paymentMethod, session })
     transactionId: `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
     amountVnd,
     status: 'PENDING',
-  }, { session });
+  }, { transaction });
 };
 
 const hashPayload = (payload) => crypto
@@ -80,7 +80,7 @@ const confirmMockPaymentForUser = async (userId, transactionId) => {
   if (!payment) {
     throw new AppError('Payment not found', 404, 'PAYMENT_NOT_FOUND');
   }
-  if (payment.user.toString() !== userId.toString()) {
+  if (payment.userId.toString() !== userId.toString()) {
     throw new AppError('Payment does not belong to this user', 403, 'PAYMENT_FORBIDDEN');
   }
   if (payment.provider !== 'MOCK') {

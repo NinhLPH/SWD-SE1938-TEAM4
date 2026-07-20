@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const connectDB = require('../config/db');
 const CartRepository = require('../repositories/CartRepository');
 const ProductRepository = require('../repositories/ProductRepository');
 const OrderRepository = require('../repositories/OrderRepository');
@@ -43,13 +43,8 @@ const groupItemsByShop = (items) => {
   return Array.from(groups.values());
 };
 
-const supportsTransactions = async () => {
-  const hello = await mongoose.connection.db.admin().command({ hello: 1 });
-  return Boolean(hello.setName || hello.msg === 'isdbgrid');
-};
-
-const createOrdersFromCart = async (userId, payload, session = null) => {
-  const options = session ? { session } : {};
+const createOrdersFromCart = async (userId, payload, transaction) => {
+  const options = { transaction };
   const cart = await CartRepository.findByUserIdWithProducts(userId, options);
 
   if (!cart || cart.items.length === 0) {
@@ -76,7 +71,7 @@ const createOrdersFromCart = async (userId, payload, session = null) => {
     items: group.items,
     totalAmountVnd: group.totalAmountVnd,
     paymentMethod: payload.paymentMethod,
-    paymentStatus: payload.paymentMethod === 'COD' ? 'PENDING' : 'PENDING',
+    paymentStatus: 'PENDING',
     status: 'PENDING',
     shippingAddress: payload.shippingAddress,
   }));
@@ -86,34 +81,18 @@ const createOrdersFromCart = async (userId, payload, session = null) => {
     userId,
     orders: createdOrders,
     paymentMethod: payload.paymentMethod,
-    session,
+    transaction,
   });
   await CartRepository.clearCart(userId, options);
 
   return {
     orders: createdOrders,
     payment,
-    transactionMode: session ? 'transaction' : 'standalone-fallback',
+    transactionMode: 'sqlserver-transaction',
   };
 };
 
-const checkout = async (userId, payload) => {
-  if (!(await supportsTransactions())) {
-    return createOrdersFromCart(userId, payload);
-  }
-
-  const session = await mongoose.startSession();
-
-  try {
-    let result = null;
-    await session.withTransaction(async () => {
-      result = await createOrdersFromCart(userId, payload, session);
-    });
-    return result;
-  } finally {
-    await session.endSession();
-  }
-};
+const checkout = (userId, payload) => connectDB.sequelize.transaction((transaction) => createOrdersFromCart(userId, payload, transaction));
 
 const listCustomerOrders = (userId) => OrderRepository.findByUser(userId);
 
@@ -145,7 +124,7 @@ const updateShopOrderStatus = async (ownerId, orderId, nextStatus) => {
 
   const order = await OrderRepository.findById(orderId);
 
-  if (!order || order.shop.toString() !== shop._id.toString()) {
+  if (!order || order.shopId.toString() !== shop._id.toString()) {
     throw new AppError('Order not found for this shop', 404, 'ORDER_NOT_FOUND');
   }
 

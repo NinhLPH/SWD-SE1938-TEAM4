@@ -236,7 +236,31 @@ function CatalogGrid({ products, meta, loading, message, error, onDetail, onAddT
           </CardTitle>
           <CardDescription>Add to cart now, checkout later.</CardDescription>
         </div>
-        <Badge variant="outline">Page {meta.page} / {meta.totalPages || 1}</Badge>
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="rounded-md"
+            disabled={meta.page <= 1}
+            onClick={() => onPage(meta.page - 1)}
+            title="Previous page"
+          >
+            <ArrowLeft className="size-4" />
+          </Button>
+          <Badge variant="outline" className="h-8 px-2.5">Page {meta.page} / {meta.totalPages || 1}</Badge>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="rounded-md"
+            disabled={meta.page >= meta.totalPages}
+            onClick={() => onPage(meta.page + 1)}
+            title="Next page"
+          >
+            <ArrowRight className="size-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="grid gap-4">
         {message && <Notice>{message}</Notice>}
@@ -274,16 +298,6 @@ function CatalogGrid({ products, meta, loading, message, error, onDetail, onAddT
             ))}
           </div>
         )}
-        <div className="flex items-center justify-between border-t pt-4">
-          <Button type="button" variant="outline" className="rounded-md" disabled={meta.page <= 1} onClick={() => onPage(meta.page - 1)}>
-            <ArrowLeft className="size-4" />
-            Previous
-          </Button>
-          <Button type="button" variant="outline" className="rounded-md" disabled={meta.page >= meta.totalPages} onClick={() => onPage(meta.page + 1)}>
-            Next
-            <ArrowRight className="size-4" />
-          </Button>
-        </div>
       </CardContent>
     </Card>
   )
