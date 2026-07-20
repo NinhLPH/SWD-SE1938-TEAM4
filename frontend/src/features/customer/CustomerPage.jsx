@@ -446,7 +446,7 @@ function OrdersScreen({ orders, loading, error, message, onCancelOrder }) {
           <EmptyBlock title="No orders" description="Checkout from cart to create your first order." />
         ) : (
           orders.map((order) => {
-            const canCancel = ['PENDING', 'CONFIRMED', 'PACKING'].includes(order.status)
+            const canCancel = order.status === 'PENDING'
 
             return (
               <Card key={order._id} className="bg-neutral-50">

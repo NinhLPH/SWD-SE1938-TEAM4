@@ -108,18 +108,18 @@ const listShopOrders = async (ownerId) => {
 
 const allowedTransitions = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
-  CONFIRMED: ['PACKING', 'CANCELLED'],
-  PACKING: ['SHIPPING', 'CANCELLED'],
+  CONFIRMED: ['PACKING'],
+  PACKING: ['SHIPPING'],
   SHIPPING: ['DELIVERED'],
   DELIVERED: [],
   CANCELLED: [],
 };
 
-const customerCancelableStatuses = ['PENDING', 'CONFIRMED', 'PACKING'];
+const customerCancelableStatuses = ['PENDING'];
 
 const applyCancellation = async (order, transaction) => {
   if (!customerCancelableStatuses.includes(order.status)) {
-    throw new AppError('Order can only be cancelled before shipping', 409, 'ORDER_CANCEL_NOT_ALLOWED');
+    throw new AppError('Order can only be cancelled while pending', 409, 'ORDER_CANCEL_NOT_ALLOWED');
   }
 
   await ProductRepository.restoreStockMany(order.items, { transaction });
