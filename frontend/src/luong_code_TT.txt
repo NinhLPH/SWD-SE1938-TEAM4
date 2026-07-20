@@ -1,0 +1,172 @@
+Mình không sửa code, chỉ phân tích luồng hiện tại.
+
+Tổng Quan
+Luồng app bắt đầu từ main.jsx mount <App />, sau đó toàn bộ điều hướng nằm trong App.jsx. Project hiện không dùng React Router, mà dùng activeTab để đổi màn hình theo role.
+
+Luồng chung:
+
+main.jsx -> App.jsx -> LoginPage / CustomerPage / AdminPage / Shop Owner UI -> utils/api.js -> backend /api/... -> routes -> middleware validate/auth -> controller -> service -> repository/model.
+
+1. Đăng Nhập
+File chính: App.jsx, LoginPage.jsx, api.js
+
+Luồng:
+
+LoginPage submit form -> App.handleLogin() -> api.login(loginForm) -> POST /api/auth/login -> AuthController.login -> AuthService.login.
+
+Sau khi login thành công:
+
+- Lưu authToken vào localStorage
+- Lưu authUser vào localStorage
+- Set currentUser
+- Chọn tab mặc định bằng role:
+  - CUSTOMER -> catalog
+  - SHOP_OWNER -> manage
+  - ADMIN -> admin
+
+2. Phân Quyền Và Load Dữ Liệu Ban Đầu
+File chính: App.jsx
+
+useEffect theo dõi currentUser và activeTab.
+
+Khi đổi tab hoặc reload user từ localStorage, app tự fetch dữ liệu:
+
+- Customer + catalog -> searchProducts, getCategories
+- Customer + cart -> getCart
+- Customer/Shop Owner + orders -> getMyOrders hoặc getShopOrders
+- Shop Owner + manage -> getMyProducts
+- Admin -> getAdminDashboard, getAdminUsers, getAdminProducts
+
+3. Customer - Xem Và Tìm Sản Phẩm
+File chính: CustomerPage.jsx, App.jsx
+
+Luồng:
+
+CatalogFilters submit -> onSearch -> App.handleSearch() -> api.searchProducts(filters) -> GET /api/search/products?... -> SearchController.searchProducts -> SearchService.searchProducts.
+
+Danh mục lấy qua:
+
+api.getCategories() -> GET /api/search/categories.
+
+Xem chi tiết:
+
+Click Detail -> onDetail(product._id) -> api.getProductDetail(id) -> GET /api/search/products/:id.
+
+4. Customer - Giỏ Hàng
+File chính: CustomerPage.jsx, App.jsx
+
+Thêm vào giỏ:
+
+Click Add -> handleAddToCart(productId) -> api.addCartItem({ productId, quantity: 1 }) -> POST /api/cart/items.
+
+Cập nhật số lượng:
+
+Input quantity onBlur -> handleUpdateCartItem(itemId, quantity) -> PATCH /api/cart/items/:itemId.
+
+Xóa item:
+
+Click Remove -> handleRemoveCartItem(itemId) -> DELETE /api/cart/items/:itemId.
+
+Backend cart yêu cầu role CUSTOMER tại cartRoutes.js.
+
+5. Customer - Checkout Và Thanh Toán
+File chính: App.jsx, OrderService.js
+
+Luồng checkout:
+
+CartScreen submit -> handleCheckout() -> api.checkout() -> POST /api/orders/checkout -> OrderController.checkout -> OrderService.checkout.
+
+Backend xử lý:
+
+- Lấy cart
+- Gom sản phẩm theo shop
+- Trừ tồn kho bằng transaction
+- Tạo nhiều order nếu cart có nhiều shop
+- Tạo payment
+- Clear cart
+
+Nếu paymentMethod = COD:
+
+- Frontend chuyển sang tab orders
+- Hiển thị message tạo đơn COD
+
+Nếu paymentMethod = ONLINE:
+
+- Frontend set paymentSession
+- Chuyển sang tab payment
+- Click Payment successful -> handleConfirmPayment() -> POST /api/payments/mock/:transactionId/confirm
+- Backend cập nhật payment PAID và order payment status PAID
+
+6. Customer - Đơn Hàng
+File chính: CustomerPage.jsx, App.jsx
+
+Xem đơn:
+
+Tab Orders -> api.getMyOrders() -> GET /api/orders/mine.
+
+Hủy đơn:
+
+Click Cancel -> handleCancelOrder(orderId) -> PATCH /api/orders/:id/cancel.
+
+Backend chỉ cho customer hủy khi status là:
+
+PENDING, CONFIRMED, PACKING.
+
+Khi hủy, backend restore stock và đổi order sang CANCELLED.
+
+7. Shop Owner - Quản Lý Sản Phẩm
+File chính: App.jsx, ProductService.js
+
+Shop Owner UI đang viết trực tiếp trong App.jsx, chưa tách thành page riêng.
+
+Luồng:
+
+- Load sản phẩm: api.getMyProducts() -> GET /api/products/mine
+- Tạo sản phẩm: handleSubmitProduct() -> POST /api/products
+- Sửa sản phẩm: handleEdit(product) đổ data vào form -> submit -> PATCH /api/products/:id
+- Xóa sản phẩm: handleDelete(id) -> DELETE /api/products/:id
+
+Backend route /api/products yêu cầu role SHOP_OWNER tại productRoutes.js.
+
+Xóa sản phẩm thực chất là soft delete: backend update status thành DELETED.
+
+8. Shop Owner - Quản Lý Đơn
+File chính: App.jsx
+
+Luồng:
+
+Tab Orders -> api.getShopOrders() -> GET /api/orders/shop.
+
+Đổi trạng thái:
+
+Select status -> handleOrderStatus(orderId, status) -> PATCH /api/orders/:id/status.
+
+Các transition hợp lệ đang khai báo cả frontend và backend:
+
+PENDING -> CONFIRMED/CANCELLED
+CONFIRMED -> PACKING/CANCELLED
+PACKING -> SHIPPING/CANCELLED
+SHIPPING -> DELIVERED
+DELIVERED/CANCELLED -> không đổi tiếp
+
+9. Admin - Dashboard, User, Product
+File chính: AdminPage.jsx, App.jsx
+
+Admin load 3 nhóm dữ liệu:
+
+- api.getAdminDashboard() -> GET /api/admin/dashboard
+- api.getAdminUsers() -> GET /api/admin/users
+- api.getAdminProducts() -> GET /api/admin/products
+
+Quản lý user:
+
+- Tạo user: form submit -> handleSubmitAdminUser() -> POST /api/admin/users
+- Sửa user: handleEditAdminUser(user) đổ vào form -> submit -> PATCH /api/admin/users/:id
+- Lock user: handleDeleteAdminUser(id) -> DELETE /api/admin/users/:id
+
+Admin products chỉ đang xem và group theo shop bằng groupProductsByShop() tại AdminPage.jsx, chưa có sửa/xóa product ở màn admin.
+
+Ghi Chú Quan Trọng
+api.js là nơi gom toàn bộ API frontend. Hàm request() tự gắn Authorization: Bearer <token> nếu có token trong localStorage, parse JSON response, và throw error nếu backend trả lỗi.
+
+Hai file Product.jsx và header.jsx hiện đang trống, không tham gia luồng chạy hiện tại.
