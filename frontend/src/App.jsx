@@ -46,8 +46,8 @@ const buildAdminUserPayload = (form, isEditing) => {
 
 const orderStatusTransitions = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
-  CONFIRMED: ['PACKING', 'CANCELLED'],
-  PACKING: ['SHIPPING', 'CANCELLED'],
+  CONFIRMED: ['PACKING'],
+  PACKING: ['SHIPPING'],
   SHIPPING: ['DELIVERED'],
   DELIVERED: [],
   CANCELLED: [],

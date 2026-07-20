@@ -110,7 +110,7 @@ Click Cancel -> handleCancelOrder(orderId) -> PATCH /api/orders/:id/cancel.
 
 Backend chỉ cho customer hủy khi status là:
 
-PENDING, CONFIRMED, PACKING.
+PENDING.
 
 Khi hủy, backend restore stock và đổi order sang CANCELLED.
 
@@ -144,8 +144,8 @@ Select status -> handleOrderStatus(orderId, status) -> PATCH /api/orders/:id/sta
 Các transition hợp lệ đang khai báo cả frontend và backend:
 
 PENDING -> CONFIRMED/CANCELLED
-CONFIRMED -> PACKING/CANCELLED
-PACKING -> SHIPPING/CANCELLED
+CONFIRMED -> PACKING
+PACKING -> SHIPPING
 SHIPPING -> DELIVERED
 DELIVERED/CANCELLED -> không đổi tiếp
 
@@ -169,4 +169,4 @@ Admin products chỉ đang xem và group theo shop bằng groupProductsByShop() 
 Ghi Chú Quan Trọng
 api.js là nơi gom toàn bộ API frontend. Hàm request() tự gắn Authorization: Bearer <token> nếu có token trong localStorage, parse JSON response, và throw error nếu backend trả lỗi.
 
-Hai file Product.jsx và header.jsx hiện đang trống, không tham gia luồng chạy hiện tại.
+Hai file Product.jsx và header.jsx trước đây trống và không tham gia luồng chạy, đã được xóa khi dọn file thừa.
