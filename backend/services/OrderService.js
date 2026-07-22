@@ -96,6 +96,16 @@ const checkout = (userId, payload) => connectDB.sequelize.transaction((transacti
 
 const listCustomerOrders = (userId) => OrderRepository.findByUser(userId);
 
+const getCustomerOrderDetail = async (userId, orderId) => {
+  const order = await OrderRepository.findCustomerOrderById(userId, orderId);
+
+  if (!order) {
+    throw new AppError('Order not found for this customer', 404, 'ORDER_NOT_FOUND');
+  }
+
+  return order;
+};
+
 const listShopOrders = async (ownerId) => {
   const shop = await ShopRepository.findApprovedByOwner(ownerId);
 
@@ -174,6 +184,7 @@ module.exports = {
   checkout,
   groupItemsByShop,
   listCustomerOrders,
+  getCustomerOrderDetail,
   listShopOrders,
   updateShopOrderStatus,
   cancelCustomerOrder,

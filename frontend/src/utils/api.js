@@ -44,6 +44,20 @@ export const api = {
     method: 'PATCH',
     body: JSON.stringify(body),
   }),
+  addStock: (id, body) => request(`/products/${id}/stock-in`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }),
+  getStockTransactions: (params = {}) => {
+    const searchParams = new URLSearchParams()
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== '' && value !== undefined && value !== null) {
+        searchParams.set(key, value)
+      }
+    })
+    const query = searchParams.toString()
+    return request(`/products/stock-transactions${query ? `?${query}` : ''}`)
+  },
   deleteProduct: (id) => request(`/products/${id}`, {
     method: 'DELETE',
   }),
@@ -75,6 +89,7 @@ export const api = {
     body: JSON.stringify(body),
   }),
   getMyOrders: () => request('/orders/mine'),
+  getMyOrderDetail: (orderId) => request(`/orders/mine/${orderId}`),
   getShopOrders: () => request('/orders/shop'),
   updateOrderStatus: (orderId, body) => request(`/orders/${orderId}/status`, {
     method: 'PATCH',
@@ -85,6 +100,12 @@ export const api = {
   }),
   getAdminDashboard: () => request('/admin/dashboard'),
   confirmMockPayment: (transactionId) => request(`/payments/mock/${transactionId}/confirm`, {
+    method: 'POST',
+  }),
+  submitVietQrTransfer: (transactionId) => request(`/payments/vietqr/${transactionId}/submit`, {
+    method: 'POST',
+  }),
+  confirmOrderVietQrPayment: (orderId) => request(`/payments/vietqr/orders/${orderId}/confirm`, {
     method: 'POST',
   }),
   getAdminUsers: () => request('/admin/users'),

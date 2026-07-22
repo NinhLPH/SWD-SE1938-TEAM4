@@ -17,9 +17,23 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const defaultCorsOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+const configuredCorsOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const corsOrigins = new Set([...defaultCorsOrigins, ...configuredCorsOrigins]);
+const isLocalDevOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin(origin, callback) {
+    if (!origin || corsOrigins.has('*') || corsOrigins.has(origin) || isLocalDevOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Not allowed by CORS'));
+  },
 }));
 app.use(express.json());
 

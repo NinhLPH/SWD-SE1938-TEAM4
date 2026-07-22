@@ -106,9 +106,26 @@ button:disabled {
   padding: 18px;
 }
 
+.panel-stack {
+  display: grid;
+  gap: 20px;
+}
+
+.panel-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
 .panel h2 {
   font-size: 18px;
   margin: 0 0 14px;
+}
+
+.panel-heading h2 {
+  margin: 0;
 }
 
 .form-grid {

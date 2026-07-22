@@ -12,6 +12,11 @@ const listMine = asyncHandler(async (req, res) => {
   sendSuccess(res, orders, 'Orders fetched');
 });
 
+const getMineDetail = asyncHandler(async (req, res) => {
+  const order = await OrderService.getCustomerOrderDetail(req.user._id, req.validated.params.id);
+  sendSuccess(res, order, 'Order detail fetched');
+});
+
 const listShopOrders = asyncHandler(async (req, res) => {
   const orders = await OrderService.listShopOrders(req.user._id);
   sendSuccess(res, orders, 'Shop orders fetched');
@@ -34,6 +39,7 @@ const cancelMine = asyncHandler(async (req, res) => {
 module.exports = {
   checkout,
   listMine,
+  getMineDetail,
   listShopOrders,
   updateStatus,
   cancelMine,

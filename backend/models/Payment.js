@@ -28,7 +28,7 @@ const Payment = connectDB.sequelize.define('Payment', {
   orders: {
     type: DataTypes.VIRTUAL,
     get() {
-      return this.getDataValue('orderIds') || [];
+      return this.orderIds || [];
     },
     set(value) {
       this.setDataValue('orderIds', value);

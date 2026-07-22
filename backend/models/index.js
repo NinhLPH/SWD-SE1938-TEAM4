@@ -5,6 +5,7 @@ const Product = require('./Product');
 const Cart = require('./Cart');
 const Order = require('./Order');
 const Payment = require('./Payment');
+const InventoryTransaction = require('./InventoryTransaction');
 
 const CartItem = Cart.CartItem;
 const OrderItem = Order.OrderItem;
@@ -17,6 +18,10 @@ Shop.hasMany(Product, { foreignKey: 'shopId', as: 'products', ...relationOptions
 Product.belongsTo(Shop, { foreignKey: 'shopId', as: 'shop', ...relationOptions });
 Product.belongsTo(Category, { foreignKey: 'categoryId', as: 'category', ...relationOptions });
 Product.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy', ...relationOptions });
+Product.hasMany(InventoryTransaction, { foreignKey: 'productId', as: 'inventoryTransactions', ...relationOptions });
+InventoryTransaction.belongsTo(Product, { foreignKey: 'productId', as: 'product', ...relationOptions });
+User.hasMany(InventoryTransaction, { foreignKey: 'userId', as: 'inventoryTransactions', ...relationOptions });
+InventoryTransaction.belongsTo(User, { foreignKey: 'userId', as: 'user', ...relationOptions });
 
 User.hasOne(Cart, { foreignKey: 'userId', as: 'cart', ...relationOptions });
 Cart.belongsTo(User, { foreignKey: 'userId', as: 'userRecord', ...relationOptions });
@@ -45,4 +50,5 @@ module.exports = {
   Order,
   OrderItem,
   Payment,
+  InventoryTransaction,
 };

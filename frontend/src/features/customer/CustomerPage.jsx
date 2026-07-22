@@ -1,9 +1,12 @@
 import {
   ArrowLeft,
   ArrowRight,
+  CircleCheck,
   CreditCard,
+  Landmark,
   LayoutGrid,
   PackageCheck,
+  QrCode,
   Search,
   ShieldCheck,
   ShoppingCart,
@@ -11,6 +14,7 @@ import {
   Star,
   Trash2,
   Truck,
+  X,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -19,6 +23,7 @@ import { Input } from '@/components/ui/input'
 
 const money = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VND`
 const cartCount = (cart) => cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0
+const dateTime = (value) => (value ? new Date(value).toLocaleString('vi-VN') : 'N/A')
 
 export function CustomerPage({
   activeTab,
@@ -29,6 +34,7 @@ export function CustomerPage({
   catalogProducts,
   catalogMeta,
   selectedProduct,
+  selectedOrder,
   cart,
   orders,
   checkoutForm,
@@ -47,6 +53,8 @@ export function CustomerPage({
   onConfirmPayment,
   onGoToOrders,
   onCancelOrder,
+  onOrderDetail,
+  onCloseOrderDetail,
   setError,
 }) {
   if (activeTab === 'cart') {
@@ -76,8 +84,8 @@ export function CustomerPage({
     return (
       <CustomerShell
         eyebrow="Payment"
-        title="Mock online checkout"
-        description="Confirming this demo gateway simulates a successful callback."
+        title="VietQR bank transfer"
+        description="Scan the QR code and transfer the exact amount with the shown content."
       >
         <PaymentScreen paymentSession={paymentSession} loading={loading} error={error} onConfirmPayment={onConfirmPayment} onGoToOrders={onGoToOrders} />
       </CustomerShell>
@@ -91,7 +99,16 @@ export function CustomerPage({
         title="Track every order"
         description="Follow payment and delivery status for each shop order."
       >
-        <OrdersScreen orders={orders} loading={loading} error={error} message={message} onCancelOrder={onCancelOrder} />
+        <OrdersScreen
+          orders={orders}
+          selectedOrder={selectedOrder}
+          loading={loading}
+          error={error}
+          message={message}
+          onCancelOrder={onCancelOrder}
+          onOrderDetail={onOrderDetail}
+          onCloseOrderDetail={onCloseOrderDetail}
+        />
       </CustomerShell>
     )
   }
@@ -389,7 +406,7 @@ function CartScreen({ cart, checkoutForm, setCheckoutForm, loading, error, messa
                 onChange={(event) => setCheckoutForm({ ...checkoutForm, paymentMethod: event.target.value })}
               >
                 <option value="COD">COD - Pay on delivery</option>
-                <option value="ONLINE">Online - Demo payment</option>
+                <option value="ONLINE">VietQR - MB bank transfer</option>
               </select>
             </FormField>
             <Button type="submit" className="rounded-md" disabled={loading || items.length === 0}>
@@ -404,24 +421,68 @@ function CartScreen({ cart, checkoutForm, setCheckoutForm, loading, error, messa
 }
 
 function PaymentScreen({ paymentSession, loading, error, onConfirmPayment, onGoToOrders }) {
+  const qrTransfer = paymentSession.payment.qrTransfer
+
   return (
-    <Card className="mx-auto max-w-3xl">
+    <Card className="mx-auto max-w-5xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <ShieldCheck className="size-5 text-emerald-700" />
-          Demo gateway
+          <QrCode className="size-5 text-emerald-700" />
+          Scan to pay
         </CardTitle>
-        <CardDescription>Online payment is simulated for demo workflow.</CardDescription>
+        <CardDescription>Use your banking app to scan VietQR, then confirm it here after transferring.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
         {error && <Notice tone="error">{error}</Notice>}
-        <div className="grid gap-3 sm:grid-cols-3">
-          <InfoTile label="Transaction" value={paymentSession.payment.transactionId} />
-          <InfoTile label="Amount" value={money(paymentSession.payment.amountVnd)} />
-          <InfoTile label="Provider" value="Mock Gateway" />
+        <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+          <Card className="bg-neutral-50">
+            <CardContent className="grid place-items-center gap-3 p-4">
+              {qrTransfer?.qrImageUrl ? (
+                <img
+                  className="aspect-square w-full max-w-72 rounded-md border bg-white object-contain p-2 shadow-sm"
+                  src={qrTransfer.qrImageUrl}
+                  alt="VietQR bank transfer code"
+                />
+              ) : (
+                <div className="grid aspect-square w-full max-w-72 place-items-center rounded-md border border-dashed bg-white text-sm text-muted-foreground">
+                  QR unavailable
+                </div>
+              )}
+              <Badge variant="success" className="px-3 py-1">
+                <ShieldCheck className="size-3" />
+                VietQR
+              </Badge>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <InfoTile label="Bank" value={qrTransfer?.bankName || 'MB Bank'} />
+              <InfoTile label="Account number" value={qrTransfer?.accountNo || '0981197806'} />
+              <InfoTile label="Amount" value={money(paymentSession.payment.amountVnd)} />
+              <InfoTile label="Transfer content" value={qrTransfer?.addInfo || paymentSession.payment.transactionId} />
+            </div>
+            <Card className="border-emerald-200 bg-emerald-50">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3 text-sm text-emerald-900">
+                  <Landmark className="mt-0.5 size-5 shrink-0 text-emerald-700" />
+                  <div>
+                    <div className="font-semibold">Transfer exact amount</div>
+                    <p className="mt-1 leading-6">Keep the transfer content unchanged so the order can be matched correctly.</p>
+                  </div>
+                </div>
+                <Badge variant="warning" className="px-3 py-1">
+                  Pending
+                </Badge>
+              </CardContent>
+            </Card>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" className="rounded-md" disabled={loading} onClick={onConfirmPayment}>Payment successful</Button>
+          <Button type="button" className="rounded-md" disabled={loading} onClick={onConfirmPayment}>
+            <CircleCheck className="size-4" />
+            I have transferred
+          </Button>
           <Button type="button" variant="outline" className="rounded-md" onClick={onGoToOrders}>Pay later</Button>
         </div>
       </CardContent>
@@ -429,52 +490,141 @@ function PaymentScreen({ paymentSession, loading, error, onConfirmPayment, onGoT
   )
 }
 
-function OrdersScreen({ orders, loading, error, message, onCancelOrder }) {
+function OrdersScreen({ orders, selectedOrder, loading, error, message, onCancelOrder, onOrderDetail, onCloseOrderDetail }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <PackageCheck className="size-5 text-emerald-700" />
-          My Orders
-        </CardTitle>
-        <CardDescription>Orders are split by shop during checkout.</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-3">
-        {message && <Notice>{message}</Notice>}
-        {error && <Notice tone="error">{error}</Notice>}
-        {orders.length === 0 ? (
-          <EmptyBlock title="No orders" description="Checkout from cart to create your first order." />
-        ) : (
-          orders.map((order) => {
-            const canCancel = order.status === 'PENDING'
+    <div className="grid gap-4 xl:grid-cols-[1fr_420px]">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <PackageCheck className="size-5 text-emerald-700" />
+            My Orders
+          </CardTitle>
+          <CardDescription>Orders are split by shop during checkout.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          {message && <Notice>{message}</Notice>}
+          {error && <Notice tone="error">{error}</Notice>}
+          {orders.length === 0 ? (
+            <EmptyBlock title="No orders" description="Checkout from cart to create your first order." />
+          ) : (
+            orders.map((order) => {
+              const canCancel = order.status === 'PENDING'
 
-            return (
-              <Card key={order._id} className="bg-neutral-50">
-                <CardContent className="grid gap-3 p-4 lg:grid-cols-[1fr_auto]">
-                  <div>
-                    <div className="text-sm text-muted-foreground">Order #{order._id}</div>
-                    <div className="mt-1 font-medium">{order.items.map((item) => `${item.productName} x${item.quantity}`).join(', ')}</div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Badge variant="outline">
-                        <Truck className="size-3" />
-                        {order.status}
-                      </Badge>
-                      <Badge variant={order.paymentStatus === 'PAID' ? 'success' : 'secondary'}>{order.paymentMethod} - {order.paymentStatus}</Badge>
+              return (
+                <Card key={order._id} className="bg-neutral-50">
+                  <CardContent className="grid gap-3 p-4 lg:grid-cols-[1fr_auto]">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Order #{order._id}</div>
+                      <div className="mt-1 font-medium">{order.items.map((item) => `${item.productName} x${item.quantity}`).join(', ')}</div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Badge variant="outline">
+                          <Truck className="size-3" />
+                          {order.status}
+                        </Badge>
+                        <Badge variant={order.paymentStatus === 'PAID' ? 'success' : 'secondary'}>{order.paymentMethod} - {order.paymentStatus}</Badge>
+                      </div>
                     </div>
-                  </div>
-                  <div className="grid gap-2 justify-items-start lg:justify-items-end">
-                    <div className="text-lg font-semibold">{money(order.totalAmountVnd)}</div>
-                    {canCancel && (
-                      <Button type="button" variant="destructive" size="sm" className="rounded-md" disabled={loading} onClick={() => onCancelOrder(order._id)}>
-                        Cancel
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })
-        )}
+                    <div className="grid gap-2 justify-items-start lg:justify-items-end">
+                      <div className="text-lg font-semibold">{money(order.totalAmountVnd)}</div>
+                      <div className="flex flex-wrap gap-2 lg:justify-end">
+                        <Button type="button" variant="outline" size="sm" className="rounded-md" disabled={loading} onClick={() => onOrderDetail(order._id)}>
+                          Detail
+                        </Button>
+                        {canCancel && (
+                          <Button type="button" variant="destructive" size="sm" className="rounded-md" disabled={loading} onClick={() => onCancelOrder(order._id)}>
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })
+          )}
+        </CardContent>
+      </Card>
+
+      <OrderDetailPanel order={selectedOrder} onClose={onCloseOrderDetail} />
+    </div>
+  )
+}
+
+function OrderDetailPanel({ order, onClose }) {
+  if (!order) {
+    return (
+      <Card className="h-fit">
+        <CardHeader>
+          <CardTitle>Order Detail</CardTitle>
+          <CardDescription>Select an order to inspect shipping, payment, and items.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <EmptyBlock title="No order selected" description="Use Detail on an order row." />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const shippingAddress = order.shippingAddress || {
+    fullName: order.shippingFullName,
+    phone: order.shippingPhone,
+    address: order.shippingAddressText,
+  }
+
+  return (
+    <Card className="h-fit">
+      <CardHeader className="flex flex-row items-start justify-between gap-3">
+        <div>
+          <CardTitle>Order Detail</CardTitle>
+          <CardDescription>#{order._id}</CardDescription>
+        </div>
+        <Button type="button" variant="outline" size="icon-sm" className="rounded-md" onClick={onClose} title="Close detail">
+          <X className="size-4" />
+        </Button>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <InfoTile label="Created at" value={dateTime(order.createdAt)} />
+          <InfoTile label="Updated at" value={dateTime(order.updatedAt)} />
+          <InfoTile label="Shop" value={order.shop?.name || 'N/A'} />
+          <InfoTile label="Total" value={money(order.totalAmountVnd)} />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline">
+            <Truck className="size-3" />
+            {order.status}
+          </Badge>
+          <Badge variant={order.paymentStatus === 'PAID' ? 'success' : 'secondary'}>{order.paymentMethod} - {order.paymentStatus}</Badge>
+        </div>
+
+        <Card className="bg-neutral-50">
+          <CardContent className="p-3">
+            <div className="text-sm font-semibold">Shipping</div>
+            <div className="mt-2 grid gap-1 text-sm text-muted-foreground">
+              <div>{shippingAddress.fullName || 'N/A'}</div>
+              <div>{shippingAddress.phone || 'N/A'}</div>
+              <div>{shippingAddress.address || 'N/A'}</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-2">
+          {(order.items || []).map((item) => (
+            <Card key={item._id} className="bg-neutral-50">
+              <CardContent className="grid gap-3 p-3 sm:grid-cols-[64px_1fr_auto] sm:items-center">
+                <div className="aspect-square overflow-hidden rounded-md bg-white">
+                  {item.imageUrl ? <img className="h-full w-full object-cover" src={item.imageUrl} alt={item.productName} /> : <div className="grid h-full place-items-center text-xs text-muted-foreground">No image</div>}
+                </div>
+                <div>
+                  <div className="font-medium">{item.productName}</div>
+                  <div className="mt-1 text-sm text-muted-foreground">{money(item.unitPriceVnd)} x {item.quantity}</div>
+                </div>
+                <div className="font-semibold">{money(item.lineTotalVnd)}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </CardContent>
     </Card>
   )

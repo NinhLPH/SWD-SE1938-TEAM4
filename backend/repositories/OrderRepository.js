@@ -39,6 +39,12 @@ const findByUser = (userId) => Order.findAll({
   order: [['createdAt', 'DESC']],
 });
 
+const findCustomerOrderById = (userId, orderId, options = {}) => Order.findOne({
+  where: { id: orderId, userId },
+  include: includeDetails,
+  transaction: options.transaction,
+});
+
 const findByShop = (shopId) => Order.findAll({
   where: { shopId },
   include: [
@@ -53,6 +59,23 @@ const findById = (orderId, options = {}) => Order.findByPk(orderId, {
   transaction: options.transaction,
 });
 
+const findByIds = (orderIds, options = {}) => Order.findAll({
+  where: { id: { [Op.in]: orderIds } },
+  include: [{ model: OrderItem, as: 'items' }],
+  transaction: options.transaction,
+});
+
+const updatePaymentStatusById = async (orderId, paymentStatus, options = {}) => {
+  await Order.update(
+    { paymentStatus },
+    {
+      where: { id: orderId },
+      transaction: options.transaction,
+    },
+  );
+  return findById(orderId, options);
+};
+
 const updatePaymentStatusMany = (orderIds, paymentStatus, options = {}) => Order.update(
   { paymentStatus },
   {
@@ -64,7 +87,10 @@ const updatePaymentStatusMany = (orderIds, paymentStatus, options = {}) => Order
 module.exports = {
   createMany,
   findByUser,
+  findCustomerOrderById,
   findByShop,
   findById,
+  findByIds,
+  updatePaymentStatusById,
   updatePaymentStatusMany,
 };

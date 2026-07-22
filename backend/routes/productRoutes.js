@@ -36,6 +36,20 @@ router.get(
   ProductController.listMyProducts,
 );
 
+router.get(
+  '/stock-transactions',
+  validateRequest(z.object({
+    query: z.object({
+      productId: objectId.optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(100).default(20),
+    }),
+    params: z.object({}),
+    body: z.object({}).optional(),
+  })),
+  ProductController.listStockTransactions,
+);
+
 router.post(
   '/',
   validateRequest(z.object({
@@ -44,6 +58,19 @@ router.post(
     params: z.object({}),
   })),
   ProductController.createProduct,
+);
+
+router.post(
+  '/:id/stock-in',
+  validateRequest(z.object({
+    params: z.object({ id: objectId }),
+    query: z.object({}),
+    body: z.object({
+      quantity: z.coerce.number().int().min(1).max(100000),
+      note: z.string().trim().max(300).optional().or(z.literal('')),
+    }),
+  })),
+  ProductController.addStock,
 );
 
 router.patch(

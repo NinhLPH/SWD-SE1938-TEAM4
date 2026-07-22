@@ -26,6 +26,12 @@ const emptyAdminUserForm = {
   password: '',
 }
 
+const emptyStockInForm = {
+  productId: '',
+  quantity: '',
+  note: '',
+}
+
 const buildAdminUserPayload = (form, isEditing) => {
   const payload = {
     fullName: form.fullName.trim(),
@@ -53,6 +59,8 @@ const orderStatusTransitions = {
   CANCELLED: [],
 }
 
+const formatDateTime = (value) => (value ? new Date(value).toLocaleString('vi-VN') : 'N/A')
+
 const getInitialUser = () => {
   const stored = localStorage.getItem('authUser')
   return stored ? JSON.parse(stored) : null
@@ -74,6 +82,7 @@ function App() {
   const [catalogProducts, setCatalogProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [selectedProduct, setSelectedProduct] = useState(null)
+  const [selectedOrder, setSelectedOrder] = useState(null)
   const [cart, setCart] = useState(null)
   const [orders, setOrders] = useState([])
   const [adminDashboard, setAdminDashboard] = useState(null)
@@ -81,6 +90,9 @@ function App() {
   const [adminProducts, setAdminProducts] = useState([])
   const [adminUserForm, setAdminUserForm] = useState(emptyAdminUserForm)
   const [editingAdminUserId, setEditingAdminUserId] = useState(null)
+  const [stockInForm, setStockInForm] = useState(emptyStockInForm)
+  const [stockTransactions, setStockTransactions] = useState([])
+  const [stockTransactionMeta, setStockTransactionMeta] = useState({ page: 1, totalPages: 1, total: 0 })
   const [paymentSession, setPaymentSession] = useState(null)
   const [filters, setFilters] = useState({
     keyword: '',
@@ -112,6 +124,12 @@ function App() {
   const loadProducts = async () => {
     const response = await api.getMyProducts()
     setProducts(response.data)
+  }
+
+  const loadStockTransactions = async (page = 1) => {
+    const response = await api.getStockTransactions({ page, limit: 10 })
+    setStockTransactions(response.data)
+    setStockTransactionMeta(response.meta || { page, totalPages: 1, total: response.data.length })
   }
 
   const loadCatalog = async (nextFilters = filters) => {
@@ -356,6 +374,83 @@ function App() {
     setOrders((items) => items.map((item) => (item._id === orderId ? response.data : item)))
   }
 
+  const handleOrderDetail = async (orderId) => {
+    setLoading(true)
+    setError('')
+
+    try {
+      const response = await api.getMyOrderDetail(orderId)
+      setSelectedOrder(response.data)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleOwnerConfirmPayment = async (orderId) => {
+    setLoading(true)
+    setError('')
+    setMessage('')
+
+    try {
+      const response = await api.confirmOrderVietQrPayment(orderId)
+      setOrders((items) => items.map((item) => (item._id === orderId ? response.data.order : item)))
+      setMessage('Payment confirmed by shop owner.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePrepareStockIn = (product) => {
+    setStockInForm({ productId: product._id, quantity: '', note: '' })
+    setMessage('')
+    setError('')
+  }
+
+  const handleStockIn = async (event) => {
+    event.preventDefault()
+    setLoading(true)
+    setError('')
+    setMessage('')
+
+    const product = products.find((item) => item._id === stockInForm.productId)
+    const quantity = Number(stockInForm.quantity)
+
+    if (!product) {
+      setError('Please select a product to import stock.')
+      setLoading(false)
+      return
+    }
+
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      setError('Import quantity must be a positive integer.')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const response = await api.addStock(product._id, {
+        quantity,
+        note: stockInForm.note.trim(),
+      })
+      const nextStockQuantity = response.data.stockTransaction.quantityAfter
+      setMessage(`Imported ${quantity} item(s) into ${product.name}. Current stock: ${nextStockQuantity}.`)
+      setStockInForm(emptyStockInForm)
+      await Promise.all([loadProducts(), loadStockTransactions()])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleStockHistoryPage = async (page) => {
+    await loadStockTransactions(page)
+  }
+
   const handleCancelOrder = async (orderId) => {
     setLoading(true)
     setError('')
@@ -364,6 +459,7 @@ function App() {
     try {
       const response = await api.cancelMyOrder(orderId)
       setOrders((items) => items.map((item) => (item._id === orderId ? response.data : item)))
+      setSelectedOrder((order) => (order?._id === orderId ? response.data : order))
       setMessage('Order cancelled. Reserved stock has been returned.')
     } catch (err) {
       setError(err.message)
@@ -379,8 +475,8 @@ function App() {
     setMessage('')
 
     try {
-      await api.confirmMockPayment(paymentSession.payment.transactionId)
-      setMessage('Online payment completed. Orders are marked as PAID.')
+      await api.submitVietQrTransfer(paymentSession.payment.transactionId)
+      setMessage('Transfer submitted. Waiting for shop owner confirmation.')
       setPaymentSession(null)
       await loadOrders()
       setActiveTab('orders')
@@ -500,8 +596,15 @@ function App() {
         }
 
         if (currentUser.role === 'SHOP_OWNER' && activeTab === 'manage') {
-          const response = await api.getMyProducts()
-          if (!cancelled) setProducts(response.data)
+          const [productsResponse, stockTransactionsResponse] = await Promise.all([
+            api.getMyProducts(),
+            api.getStockTransactions({ page: 1, limit: 10 }),
+          ])
+          if (!cancelled) {
+            setProducts(productsResponse.data)
+            setStockTransactions(stockTransactionsResponse.data)
+            setStockTransactionMeta(stockTransactionsResponse.meta || { page: 1, totalPages: 1, total: stockTransactionsResponse.data.length })
+          }
         }
 
         if (currentUser.role === 'ADMIN') {
@@ -561,7 +664,7 @@ function App() {
         )}
         {isCustomer && paymentSession && <button className={activeTab === 'payment' ? 'active' : ''} onClick={() => setActiveTab('payment')}>Payment</button>}
         {!isAdmin && <button className={activeTab === 'orders' ? 'active' : ''} onClick={() => { setActiveTab('orders'); loadOrders().catch((err) => setError(err.message)) }}>Orders</button>}
-        {isShopOwner && <button className={activeTab === 'manage' ? 'active' : ''} onClick={() => { setActiveTab('manage'); loadProducts().catch((err) => setError(err.message)) }}>Shop Products</button>}
+        {isShopOwner && <button className={activeTab === 'manage' ? 'active' : ''} onClick={() => { setActiveTab('manage'); loadProducts().catch((err) => setError(err.message)); loadStockTransactions().catch((err) => setError(err.message)) }}>Shop Products</button>}
         {isAdmin && (
           <button
             className="active"
@@ -615,6 +718,7 @@ function App() {
           selectedProduct={selectedProduct}
           cart={cart}
           orders={orders}
+          selectedOrder={selectedOrder}
           checkoutForm={checkoutForm}
           setCheckoutForm={setCheckoutForm}
           paymentSession={paymentSession}
@@ -631,89 +735,170 @@ function App() {
           onConfirmPayment={handleConfirmPayment}
           onGoToOrders={() => setActiveTab('orders')}
           onCancelOrder={handleCancelOrder}
+          onOrderDetail={handleOrderDetail}
+          onCloseOrderDetail={() => setSelectedOrder(null)}
           setError={setError}
         />
       )}
 
       {isShopOwner && activeTab === 'manage' && (
         <main className="content">
-          <section className="panel">
-            <h2>{editingId ? 'Edit Product' : 'Create Product'}</h2>
-            {message && <div className="message">{message}</div>}
-            {error && <div className="message error">{error}</div>}
-            <form className="form-grid" onSubmit={handleSubmitProduct}>
-              <label className="field">
-                <span>Category ID</span>
-                <input value={productForm.categoryId} onChange={(event) => setProductForm({ ...productForm, categoryId: event.target.value })} required />
-              </label>
-              <label className="field">
-                <span>Name</span>
-                <input value={productForm.name} onChange={(event) => setProductForm({ ...productForm, name: event.target.value })} required />
-              </label>
-              <label className="field">
-                <span>Description</span>
-                <textarea rows="3" value={productForm.description} onChange={(event) => setProductForm({ ...productForm, description: event.target.value })} />
-              </label>
-              <label className="field">
-                <span>Origin</span>
-                <input value={productForm.origin} onChange={(event) => setProductForm({ ...productForm, origin: event.target.value })} />
-              </label>
-              <label className="field">
-                <span>Price VND</span>
-                <input min="0" type="number" value={productForm.priceVnd} onChange={(event) => setProductForm({ ...productForm, priceVnd: event.target.value })} required />
-              </label>
-              <label className="field">
-                <span>Stock</span>
-                <input min="0" type="number" value={productForm.stockQuantity} onChange={(event) => setProductForm({ ...productForm, stockQuantity: event.target.value })} required />
-              </label>
-              <label className="field">
-                <span>Image URL</span>
-                <input value={productForm.imageUrl} onChange={(event) => setProductForm({ ...productForm, imageUrl: event.target.value })} />
-              </label>
-              <label className="field">
-                <span>Status</span>
-                <select value={productForm.status} onChange={(event) => setProductForm({ ...productForm, status: event.target.value })}>
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="HIDDEN">HIDDEN</option>
-                  <option value="SUSPENDED">SUSPENDED</option>
-                </select>
-              </label>
-              <div className="actions">
-                <button disabled={loading}>{editingId ? 'Save' : 'Create'}</button>
-                {editingId && <button className="secondary" type="button" onClick={() => { setEditingId(null); setProductForm(emptyForm) }}>Cancel</button>}
-              </div>
-            </form>
-          </section>
+          <div className="panel-stack">
+            <section className="panel">
+              <h2>{editingId ? 'Edit Product' : 'Create Product'}</h2>
+              {message && <div className="message">{message}</div>}
+              {error && <div className="message error">{error}</div>}
+              <form className="form-grid" onSubmit={handleSubmitProduct}>
+                <label className="field">
+                  <span>Category ID</span>
+                  <input value={productForm.categoryId} onChange={(event) => setProductForm({ ...productForm, categoryId: event.target.value })} required />
+                </label>
+                <label className="field">
+                  <span>Name</span>
+                  <input value={productForm.name} onChange={(event) => setProductForm({ ...productForm, name: event.target.value })} required />
+                </label>
+                <label className="field">
+                  <span>Description</span>
+                  <textarea rows="3" value={productForm.description} onChange={(event) => setProductForm({ ...productForm, description: event.target.value })} />
+                </label>
+                <label className="field">
+                  <span>Origin</span>
+                  <input value={productForm.origin} onChange={(event) => setProductForm({ ...productForm, origin: event.target.value })} />
+                </label>
+                <label className="field">
+                  <span>Price VND</span>
+                  <input min="0" type="number" value={productForm.priceVnd} onChange={(event) => setProductForm({ ...productForm, priceVnd: event.target.value })} required />
+                </label>
+                <label className="field">
+                  <span>Stock</span>
+                  <input min="0" type="number" value={productForm.stockQuantity} onChange={(event) => setProductForm({ ...productForm, stockQuantity: event.target.value })} required />
+                </label>
+                <label className="field">
+                  <span>Image URL</span>
+                  <input value={productForm.imageUrl} onChange={(event) => setProductForm({ ...productForm, imageUrl: event.target.value })} />
+                </label>
+                <label className="field">
+                  <span>Status</span>
+                  <select value={productForm.status} onChange={(event) => setProductForm({ ...productForm, status: event.target.value })}>
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="HIDDEN">HIDDEN</option>
+                    <option value="SUSPENDED">SUSPENDED</option>
+                  </select>
+                </label>
+                <div className="actions">
+                  <button disabled={loading}>{editingId ? 'Save' : 'Create'}</button>
+                  {editingId && <button className="secondary" type="button" onClick={() => { setEditingId(null); setProductForm(emptyForm) }}>Cancel</button>}
+                </div>
+              </form>
+            </section>
 
-          <section className="panel">
-            <h2>My Products</h2>
-            <table className="product-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Price</th>
-                  <th>Stock</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((product) => (
-                  <tr key={product._id}>
-                    <td>{product.name}</td>
-                    <td>{Number(product.priceVnd).toLocaleString('vi-VN')} VND</td>
-                    <td>{product.stockQuantity}</td>
-                    <td>{product.status}</td>
-                    <td className="actions">
-                      <button className="secondary" type="button" onClick={() => handleEdit(product)}>Edit</button>
-                      <button className="danger" type="button" onClick={() => handleDelete(product._id)}>Delete</button>
-                    </td>
+            <section className="panel">
+              <h2>Stock In</h2>
+              {message && <div className="message">{message}</div>}
+              {error && <div className="message error">{error}</div>}
+              <form className="form-grid" onSubmit={handleStockIn}>
+                <label className="field">
+                  <span>Product</span>
+                  <select value={stockInForm.productId} onChange={(event) => setStockInForm({ ...stockInForm, productId: event.target.value })} required>
+                    <option value="">Select product</option>
+                    {products.map((product) => (
+                      <option key={product._id} value={product._id}>
+                        {product.name} - Stock {product.stockQuantity}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Import quantity</span>
+                  <input min="1" type="number" value={stockInForm.quantity} onChange={(event) => setStockInForm({ ...stockInForm, quantity: event.target.value })} required />
+                </label>
+                <label className="field">
+                  <span>Note</span>
+                  <textarea rows="3" maxLength="300" value={stockInForm.note} onChange={(event) => setStockInForm({ ...stockInForm, note: event.target.value })} />
+                </label>
+                {stockInForm.productId && (
+                  <div className="stat-card">
+                    <span>Stock after import</span>
+                    <strong>
+                      {Number(products.find((product) => product._id === stockInForm.productId)?.stockQuantity || 0) + Number(stockInForm.quantity || 0)}
+                    </strong>
+                  </div>
+                )}
+                <div className="actions">
+                  <button disabled={loading}>Import Stock</button>
+                  <button className="secondary" type="button" onClick={() => setStockInForm(emptyStockInForm)}>Clear</button>
+                </div>
+              </form>
+            </section>
+          </div>
+
+          <div className="panel-stack">
+            <section className="panel">
+              <h2>My Products</h2>
+              <table className="product-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Price</th>
+                    <th>Stock</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-                {products.length === 0 && <tr><td colSpan="5">No products loaded.</td></tr>}
-              </tbody>
-            </table>
-          </section>
+                </thead>
+                <tbody>
+                  {products.map((product) => (
+                    <tr key={product._id}>
+                      <td>{product.name}</td>
+                      <td>{Number(product.priceVnd).toLocaleString('vi-VN')} VND</td>
+                      <td>{product.stockQuantity}</td>
+                      <td>{product.status}</td>
+                      <td className="actions">
+                        <button className="secondary" type="button" onClick={() => handlePrepareStockIn(product)}>Stock in</button>
+                        <button className="secondary" type="button" onClick={() => handleEdit(product)}>Edit</button>
+                        <button className="danger" type="button" onClick={() => handleDelete(product._id)}>Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {products.length === 0 && <tr><td colSpan="5">No products loaded.</td></tr>}
+                </tbody>
+              </table>
+            </section>
+
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>Stock History</h2>
+                <div className="actions">
+                  <button className="secondary" type="button" disabled={stockTransactionMeta.page <= 1} onClick={() => handleStockHistoryPage(stockTransactionMeta.page - 1).catch((err) => setError(err.message))}>Prev</button>
+                  <button className="secondary" type="button" disabled={stockTransactionMeta.page >= stockTransactionMeta.totalPages} onClick={() => handleStockHistoryPage(stockTransactionMeta.page + 1).catch((err) => setError(err.message))}>Next</button>
+                </div>
+              </div>
+              <table className="product-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Product</th>
+                    <th>Quantity</th>
+                    <th>Before</th>
+                    <th>After</th>
+                    <th>Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stockTransactions.map((item) => (
+                    <tr key={item._id}>
+                      <td>{formatDateTime(item.createdAt)}</td>
+                      <td>{item.product?.name || 'Product'}</td>
+                      <td>+{item.quantity}</td>
+                      <td>{item.quantityBefore}</td>
+                      <td>{item.quantityAfter}</td>
+                      <td>{item.note || '-'}</td>
+                    </tr>
+                  ))}
+                  {stockTransactions.length === 0 && <tr><td colSpan="6">No stock history yet.</td></tr>}
+                </tbody>
+              </table>
+            </section>
+          </div>
         </main>
       )}
 
@@ -721,6 +906,7 @@ function App() {
         <main className="content single">
           <section className="panel">
             <h2>Orders</h2>
+            {message && <div className="message">{message}</div>}
             {error && <div className="message error">{error}</div>}
             <table className="product-table">
               <thead>
@@ -737,7 +923,19 @@ function App() {
                   <tr key={order._id}>
                     <td>{order._id}</td>
                     <td>{Number(order.totalAmountVnd).toLocaleString('vi-VN')} VND</td>
-                    <td>{order.paymentMethod} · {order.paymentStatus}</td>
+                    <td>
+                      <div>{order.paymentMethod} · {order.paymentStatus}</div>
+                      {order.paymentMethod === 'ONLINE' && order.paymentStatus === 'PENDING' && (
+                        <button
+                          className="secondary"
+                          type="button"
+                          disabled={loading}
+                          onClick={() => handleOwnerConfirmPayment(order._id)}
+                        >
+                          Confirm payment
+                        </button>
+                      )}
+                    </td>
                     <td>
                       {isShopOwner ? (
                         <select

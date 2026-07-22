@@ -21,6 +21,20 @@ const updateMyProduct = asyncHandler(async (req, res) => {
   sendSuccess(res, product, 'Product updated');
 });
 
+const addStock = asyncHandler(async (req, res) => {
+  const result = await ProductService.addStock(
+    req.user._id,
+    req.validated.params.id,
+    req.validated.body,
+  );
+  sendSuccess(res, result, 'Stock imported');
+});
+
+const listStockTransactions = asyncHandler(async (req, res) => {
+  const result = await ProductService.listStockTransactions(req.user._id, req.validated.query);
+  sendSuccess(res, result.items, 'Stock history fetched', 200, result.meta);
+});
+
 const deleteMyProduct = asyncHandler(async (req, res) => {
   const product = await ProductService.softDeleteMyProduct(req.user._id, req.validated.params.id);
   sendSuccess(res, product, 'Product deleted');
@@ -30,5 +44,7 @@ module.exports = {
   createProduct,
   listMyProducts,
   updateMyProduct,
+  addStock,
+  listStockTransactions,
   deleteMyProduct,
 };

@@ -15,6 +15,18 @@ router.get(
 );
 
 router.get(
+  '/mine/:id',
+  authenticate,
+  authorize('CUSTOMER'),
+  validateRequest(z.object({
+    params: z.object({ id: objectId }),
+    query: z.object({}),
+    body: z.object({}).optional(),
+  })),
+  OrderController.getMineDetail,
+);
+
+router.get(
   '/shop',
   authenticate,
   authorize('SHOP_OWNER'),

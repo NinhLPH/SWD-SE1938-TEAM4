@@ -1,7 +1,7 @@
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const connectDB = require('../config/db');
-const { Cart, CartItem, Category, Order, OrderItem, Payment, Product, Shop, User } = require('../models');
+const { Cart, CartItem, Category, InventoryTransaction, Order, OrderItem, Payment, Product, Shop, User } = require('../models');
 
 dotenv.config();
 
@@ -113,6 +113,45 @@ const seed = async () => {
     status: 'ACTIVE',
   })));
   const productByName = Object.fromEntries(products.map((product) => [product.name, product]));
+
+  await InventoryTransaction.bulkCreate([
+    {
+      productId: productByName['Fuji Apple']._id,
+      userId: owner._id,
+      transactionType: 'STOCK_IN',
+      quantity: 40,
+      quantityBefore: 80,
+      quantityAfter: 120,
+      note: 'Initial imported apple batch',
+    },
+    {
+      productId: productByName['Premium Office Fruit Box']._id,
+      userId: owner._id,
+      transactionType: 'STOCK_IN',
+      quantity: 10,
+      quantityBefore: 15,
+      quantityAfter: 25,
+      note: 'Prepared gift boxes for weekly sale',
+    },
+    {
+      productId: productByName['Da Lat Strawberry']._id,
+      userId: owner2._id,
+      transactionType: 'STOCK_IN',
+      quantity: 20,
+      quantityBefore: 35,
+      quantityAfter: 55,
+      note: 'Morning greenhouse delivery',
+    },
+    {
+      productId: productByName['Cat Chu Mango']._id,
+      userId: owner3._id,
+      transactionType: 'STOCK_IN',
+      quantity: 30,
+      quantityBefore: 50,
+      quantityAfter: 80,
+      note: 'Fresh mangoes from orchard',
+    },
+  ]);
 
   const cart = await Cart.create({ userId: customer._id });
   await CartItem.bulkCreate([

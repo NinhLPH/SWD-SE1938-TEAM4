@@ -8,14 +8,15 @@ const includes = [
 
 const create = (data, options = {}) => Product.create(data, options);
 
-const findById = (id) => Product.findByPk(id, { include: includes });
+const findById = (id, options = {}) => Product.findByPk(id, { include: includes, ...options });
 
-const findOwnerProductById = (id, ownerId) => Product.findOne({
+const findOwnerProductById = (id, ownerId, options = {}) => Product.findOne({
   where: {
     id,
     createdById: ownerId,
     status: { [Op.ne]: 'DELETED' },
   },
+  ...options,
 });
 
 const updateById = async (id, data, options = {}) => {
