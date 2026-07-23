@@ -22,6 +22,7 @@ const badgeVariants = cva(
   }
 )
 
+// Badge dùng để hiển thị nhãn trạng thái với nhiều biến thể màu.
 function Badge({
   className,
   variant,

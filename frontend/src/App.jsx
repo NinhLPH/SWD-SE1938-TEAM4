@@ -32,6 +32,7 @@ const emptyStockInForm = {
   note: '',
 }
 
+// Chuẩn hóa dữ liệu tài khoản admin trước khi gửi API tạo/cập nhật.
 const buildAdminUserPayload = (form, isEditing) => {
   const payload = {
     fullName: form.fullName.trim(),
@@ -59,13 +60,16 @@ const orderStatusTransitions = {
   CANCELLED: [],
 }
 
+// Định dạng thời gian theo chuẩn hiển thị tiếng Việt.
 const formatDateTime = (value) => (value ? new Date(value).toLocaleString('vi-VN') : 'N/A')
 
+// Lấy thông tin người dùng đã đăng nhập từ localStorage khi mở lại trang.
 const getInitialUser = () => {
   const stored = localStorage.getItem('authUser')
   return stored ? JSON.parse(stored) : null
 }
 
+// Chọn tab mặc định theo vai trò người dùng.
 const getInitialTab = (user) => {
   if (!user) return 'catalog'
   if (user.role === 'SHOP_OWNER') return 'manage'
@@ -73,6 +77,7 @@ const getInitialTab = (user) => {
   return 'catalog'
 }
 
+// Component gốc điều phối đăng nhập, phân quyền tab và dữ liệu toàn ứng dụng.
 function App() {
   const [currentUser, setCurrentUser] = useState(getInitialUser)
   const [activeTab, setActiveTab] = useState(getInitialTab(currentUser))
@@ -121,53 +126,63 @@ function App() {
   const isShopOwner = role === 'SHOP_OWNER'
   const isAdmin = role === 'ADMIN'
 
+  // Tải danh sách sản phẩm thuộc shop owner hiện tại.
   const loadProducts = async () => {
     const response = await api.getMyProducts()
     setProducts(response.data)
   }
 
+  // Tải lịch sử nhập kho theo trang cho shop owner.
   const loadStockTransactions = async (page = 1) => {
     const response = await api.getStockTransactions({ page, limit: 10 })
     setStockTransactions(response.data)
     setStockTransactionMeta(response.meta || { page, totalPages: 1, total: response.data.length })
   }
 
+  // Tải catalog sản phẩm theo bộ lọc tìm kiếm của khách hàng.
   const loadCatalog = async (nextFilters = filters) => {
     const response = await api.searchProducts(nextFilters)
     setCatalogProducts(response.data)
     setCatalogMeta(response.meta || { page: 1, totalPages: 1, total: response.data.length })
   }
 
+  // Tải danh sách danh mục dùng trong bộ lọc catalog.
   const loadCategories = async () => {
     const response = await api.getCategories()
     setCategories(response.data)
   }
 
+  // Tải giỏ hàng hiện tại của khách hàng.
   const loadCart = async () => {
     const response = await api.getCart()
     setCart(response.data)
   }
 
+  // Tải đơn hàng theo vai trò: shop owner xem đơn shop, khách xem đơn của mình.
   const loadOrders = async () => {
     const response = isShopOwner ? await api.getShopOrders() : await api.getMyOrders()
     setOrders(response.data)
   }
 
+  // Tải số liệu tổng quan cho trang admin.
   const loadAdminDashboard = async () => {
     const response = await api.getAdminDashboard()
     setAdminDashboard(response.data)
   }
 
+  // Tải danh sách tài khoản để admin quản lý.
   const loadAdminUsers = async () => {
     const response = await api.getAdminUsers()
     setAdminUsers(response.data)
   }
 
+  // Tải toàn bộ sản phẩm để admin theo dõi theo shop.
   const loadAdminProducts = async () => {
     const response = await api.getAdminProducts()
     setAdminProducts(response.data)
   }
 
+  // Xử lý đăng nhập và nạp dữ liệu ban đầu theo vai trò.
   const handleLogin = async (event) => {
     event.preventDefault()
     setLoading(true)
@@ -202,6 +217,7 @@ function App() {
     }
   }
 
+  // Xóa phiên đăng nhập và đưa người dùng về catalog công khai.
   const handleLogout = () => {
     localStorage.removeItem('authToken')
     localStorage.removeItem('authUser')
@@ -211,6 +227,7 @@ function App() {
     setError('')
   }
 
+  // Tạo mới hoặc cập nhật sản phẩm của shop owner.
   const handleSubmitProduct = async (event) => {
     event.preventDefault()
     setLoading(true)
@@ -243,6 +260,7 @@ function App() {
     }
   }
 
+  // Đưa thông tin sản phẩm vào form để chỉnh sửa.
   const handleEdit = (product) => {
     setEditingId(product._id)
     setProductForm({
@@ -257,6 +275,7 @@ function App() {
     })
   }
 
+  // Xóa sản phẩm của shop owner rồi tải lại danh sách.
   const handleDelete = async (productId) => {
     setLoading(true)
     setError('')
@@ -273,6 +292,7 @@ function App() {
     }
   }
 
+  // Tìm kiếm catalog và reset về trang đầu tiên.
   const handleSearch = async (event) => {
     event.preventDefault()
     setLoading(true)
@@ -291,12 +311,14 @@ function App() {
     }
   }
 
+  // Chuyển trang catalog theo bộ lọc hiện tại.
   const handlePage = async (page) => {
     const nextFilters = { ...filters, page }
     setFilters(nextFilters)
     await loadCatalog(nextFilters)
   }
 
+  // Tải chi tiết sản phẩm được chọn trong catalog.
   const handleDetail = async (productId) => {
     setLoading(true)
     setError('')
@@ -310,6 +332,7 @@ function App() {
     }
   }
 
+  // Thêm một sản phẩm vào giỏ hàng với số lượng mặc định là 1.
   const handleAddToCart = async (productId) => {
     setLoading(true)
     setError('')
@@ -326,16 +349,19 @@ function App() {
     }
   }
 
+  // Cập nhật số lượng của một dòng sản phẩm trong giỏ hàng.
   const handleUpdateCartItem = async (itemId, quantity) => {
     const response = await api.updateCartItem(itemId, { quantity: Number(quantity) })
     setCart(response.data)
   }
 
+  // Xóa một dòng sản phẩm khỏi giỏ hàng.
   const handleRemoveCartItem = async (itemId) => {
     const response = await api.removeCartItem(itemId)
     setCart(response.data)
   }
 
+  // Tạo đơn hàng từ giỏ hàng và rẽ nhánh COD hoặc thanh toán VietQR.
   const handleCheckout = async (event) => {
     event.preventDefault()
     setLoading(true)
@@ -369,11 +395,13 @@ function App() {
     }
   }
 
+  // Shop owner cập nhật trạng thái giao hàng của đơn.
   const handleOrderStatus = async (orderId, status) => {
     const response = await api.updateOrderStatus(orderId, { status })
     setOrders((items) => items.map((item) => (item._id === orderId ? response.data : item)))
   }
 
+  // Tải chi tiết đơn hàng của khách hàng.
   const handleOrderDetail = async (orderId) => {
     setLoading(true)
     setError('')
@@ -388,6 +416,7 @@ function App() {
     }
   }
 
+  // Shop owner xác nhận thanh toán VietQR cho một đơn hàng.
   const handleOwnerConfirmPayment = async (orderId) => {
     setLoading(true)
     setError('')
@@ -404,12 +433,14 @@ function App() {
     }
   }
 
+  // Chọn nhanh sản phẩm để nhập kho.
   const handlePrepareStockIn = (product) => {
     setStockInForm({ productId: product._id, quantity: '', note: '' })
     setMessage('')
     setError('')
   }
 
+  // Kiểm tra dữ liệu nhập kho, gọi API tăng tồn kho và tải lại lịch sử.
   const handleStockIn = async (event) => {
     event.preventDefault()
     setLoading(true)
@@ -447,10 +478,12 @@ function App() {
     }
   }
 
+  // Chuyển trang lịch sử nhập kho.
   const handleStockHistoryPage = async (page) => {
     await loadStockTransactions(page)
   }
 
+  // Khách hàng hủy đơn đang chờ xử lý và hoàn lại tồn kho đã giữ.
   const handleCancelOrder = async (orderId) => {
     setLoading(true)
     setError('')
@@ -468,6 +501,7 @@ function App() {
     }
   }
 
+  // Khách hàng báo đã chuyển khoản VietQR để chờ shop owner xác nhận.
   const handleConfirmPayment = async () => {
     if (!paymentSession) return
     setLoading(true)
@@ -487,6 +521,7 @@ function App() {
     }
   }
 
+  // Admin tạo mới hoặc cập nhật tài khoản sau khi validate form.
   const handleSubmitAdminUser = async (event) => {
     event.preventDefault()
     setLoading(true)
@@ -537,6 +572,7 @@ function App() {
     }
   }
 
+  // Đưa thông tin tài khoản vào form admin để chỉnh sửa.
   const handleEditAdminUser = (user) => {
     setEditingAdminUserId(user._id)
     setAdminUserForm({
@@ -550,6 +586,7 @@ function App() {
     })
   }
 
+  // Khóa tài khoản người dùng từ màn hình admin.
   const handleDeleteAdminUser = async (userId) => {
     setLoading(true)
     setError('')
@@ -566,9 +603,11 @@ function App() {
     }
   }
 
+  // Đồng bộ dữ liệu server khi người dùng hoặc tab hiện tại thay đổi.
   useEffect(() => {
     let cancelled = false
 
+    // Tải dữ liệu ban đầu phù hợp với vai trò và tab đang mở.
     const loadInitialData = async () => {
       if (!currentUser) return
 
@@ -629,7 +668,7 @@ function App() {
     return () => {
       cancelled = true
     }
-    // Initial role/tab hydration intentionally fetches server data after localStorage restore.
+    // Chủ động tải dữ liệu theo vai trò/tab sau khi khôi phục phiên từ localStorage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, activeTab])
 

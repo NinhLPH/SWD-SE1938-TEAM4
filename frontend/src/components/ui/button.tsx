@@ -38,6 +38,7 @@ const buttonVariants = cva(
   }
 )
 
+// Button dùng lại của shadcn/base-ui, nhận variant và size để sinh class phù hợp.
 function Button({
   className,
   variant = "default",

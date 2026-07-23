@@ -25,8 +25,10 @@ const statLabels = {
   totalPaidVnd: 'Paid Revenue',
 }
 
+// Định dạng số tiền VND cho các bảng và thẻ thống kê admin.
 const money = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VND`
 
+// Màn hình quản trị tài khoản, dashboard và sản phẩm theo từng shop.
 export function AdminPage({
   adminDashboard,
   adminUsers,
@@ -234,6 +236,7 @@ export function AdminPage({
   )
 }
 
+// Gom sản phẩm theo shop để admin xem tồn kho và giá trị hàng hóa của từng shop.
 function groupProductsByShop(products) {
   const groups = new Map()
 
@@ -257,6 +260,7 @@ function groupProductsByShop(products) {
   return Array.from(groups.values()).sort((a, b) => a.shopName.localeCompare(b.shopName))
 }
 
+// Input dùng lại trong form admin để giữ style và props validate thống nhất.
 function AdminInput({ label, value, onChange, type = 'text', required = false, placeholder = '', minLength, maxLength }) {
   return (
     <label className="grid gap-1.5 text-sm font-medium">
@@ -275,6 +279,7 @@ function AdminInput({ label, value, onChange, type = 'text', required = false, p
   )
 }
 
+// Khung bảng dữ liệu có tiêu đề và khu vực action tùy chọn.
 function DataPanel({ title, action, children }) {
   return (
     <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
@@ -287,7 +292,9 @@ function DataPanel({ title, action, children }) {
   )
 }
 
+// Bảng đơn giản cho các danh sách gần đây, đọc được cả key lồng nhau dạng a.b.
 function SimpleRecentTable({ title, rows, columns, moneyColumn }) {
+  // Lấy giá trị theo tên cột, hỗ trợ đường dẫn lồng nhau như user.email.
   const getValue = (row, column) => column.split('.').reduce((value, key) => value?.[key], row)
   return (
     <DataPanel title={title}>
@@ -311,6 +318,7 @@ function SimpleRecentTable({ title, rows, columns, moneyColumn }) {
   )
 }
 
+// Bảng đơn hàng gần đây, kèm nhãn checkout để nhận biết các đơn cùng phiên.
 function RecentOrdersTable({ rows }) {
   const checkoutLabels = getCheckoutLabels(rows)
 
@@ -351,6 +359,7 @@ function RecentOrdersTable({ rows }) {
   )
 }
 
+// Tạo nhãn checkout cho các đơn được tách theo shop trong cùng một lần thanh toán.
 function getCheckoutLabels(orders) {
   const groups = new Map()
 
@@ -378,6 +387,7 @@ function getCheckoutLabels(orders) {
   return labels
 }
 
+// Rút gọn id dài để hiển thị gọn trong bảng.
 function shortId(value) {
   return value ? `#${String(value).slice(-6)}` : 'N/A'
 }

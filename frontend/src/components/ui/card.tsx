@@ -2,6 +2,7 @@ import type * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+// Container card dùng chung cho các khối nội dung có viền và bóng nhẹ.
 function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -12,6 +13,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+// Phần đầu card chứa tiêu đề, mô tả hoặc action.
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -22,6 +24,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+// Tiêu đề chính bên trong card.
 function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -32,6 +35,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+// Mô tả phụ bên dưới tiêu đề card.
 function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -42,6 +46,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+// Nội dung chính của card.
 function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div

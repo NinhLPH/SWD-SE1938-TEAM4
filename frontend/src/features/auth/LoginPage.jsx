@@ -7,6 +7,7 @@ const demoAccounts = [
   { label: 'Admin', icon: ShieldCheck, email: 'admin@example.com' },
 ]
 
+// Màn hình đăng nhập và chọn nhanh tài khoản demo theo vai trò.
 export function LoginPage({ loginForm, setLoginForm, onLogin, loading, error }) {
   return (
     <main className="min-h-screen bg-neutral-950 text-white">

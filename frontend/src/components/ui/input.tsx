@@ -2,6 +2,7 @@ import type * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+// Input dùng chung, gộp class mặc định với class truyền vào.
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
     <input

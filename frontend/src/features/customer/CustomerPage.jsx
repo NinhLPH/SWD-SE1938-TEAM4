@@ -21,10 +21,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 
+// Định dạng số tiền theo VND để dùng thống nhất trong màn hình khách hàng.
 const money = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VND`
+// Tính tổng số lượng sản phẩm trong giỏ hàng.
 const cartCount = (cart) => cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0
+// Định dạng thời gian đơn hàng theo locale Việt Nam.
 const dateTime = (value) => (value ? new Date(value).toLocaleString('vi-VN') : 'N/A')
 
+// Điều hướng nội dung khách hàng theo tab hiện tại: catalog, cart, payment hoặc orders.
 export function CustomerPage({
   activeTab,
   filters,
@@ -152,6 +156,7 @@ export function CustomerPage({
   )
 }
 
+// Khung bố cục chung cho các màn hình của khách hàng.
 function CustomerShell({ eyebrow, title, description, metrics = [], children }) {
   return (
     <main className="min-h-[calc(100vh-126px)] bg-neutral-50 px-4 py-5 text-foreground sm:px-6">
@@ -184,6 +189,7 @@ function CustomerShell({ eyebrow, title, description, metrics = [], children }) 
   )
 }
 
+// Form bộ lọc giúp khách hàng tìm sản phẩm theo từ khóa, giá, danh mục và đánh giá.
 function CatalogFilters({ filters, setFilters, categories, loadCategories, loading, onSearch, setError }) {
   return (
     <Card className="h-fit">
@@ -243,6 +249,7 @@ function CatalogFilters({ filters, setFilters, categories, loadCategories, loadi
   )
 }
 
+// Hiển thị danh sách sản phẩm catalog kèm phân trang và thao tác thêm vào giỏ.
 function CatalogGrid({ products, meta, loading, message, error, onDetail, onAddToCart, onPage }) {
   return (
     <Card>
@@ -321,6 +328,7 @@ function CatalogGrid({ products, meta, loading, message, error, onDetail, onAddT
   )
 }
 
+// Hiển thị chi tiết sản phẩm đang được khách chọn.
 function ProductDetail({ product }) {
   return (
     <Card className="overflow-hidden">
@@ -344,6 +352,7 @@ function ProductDetail({ product }) {
   )
 }
 
+// Hiển thị giỏ hàng và form thông tin nhận hàng để checkout.
 function CartScreen({ cart, checkoutForm, setCheckoutForm, loading, error, message, onUpdateCartItem, onRemoveCartItem, onCheckout, setError }) {
   const items = cart?.items || []
 
@@ -420,6 +429,7 @@ function CartScreen({ cart, checkoutForm, setCheckoutForm, loading, error, messa
   )
 }
 
+// Hiển thị thông tin chuyển khoản VietQR cho phiên thanh toán online.
 function PaymentScreen({ paymentSession, loading, error, onConfirmPayment, onGoToOrders }) {
   const qrTransfer = paymentSession.payment.qrTransfer
 
@@ -490,6 +500,7 @@ function PaymentScreen({ paymentSession, loading, error, onConfirmPayment, onGoT
   )
 }
 
+// Hiển thị danh sách đơn hàng của khách và panel chi tiết bên cạnh.
 function OrdersScreen({ orders, selectedOrder, loading, error, message, onCancelOrder, onOrderDetail, onCloseOrderDetail }) {
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_420px]">
@@ -550,6 +561,7 @@ function OrdersScreen({ orders, selectedOrder, loading, error, message, onCancel
   )
 }
 
+// Panel chi tiết đơn hàng, gồm giao hàng, thanh toán và từng sản phẩm.
 function OrderDetailPanel({ order, onClose }) {
   if (!order) {
     return (
@@ -630,6 +642,7 @@ function OrderDetailPanel({ order, onClose }) {
   )
 }
 
+// Bọc label và input/select để giữ form nhất quán.
 function FormField({ label, children }) {
   return (
     <label className="grid gap-1.5 text-sm font-medium">
@@ -639,10 +652,12 @@ function FormField({ label, children }) {
   )
 }
 
+// Hiển thị thông báo thành công hoặc lỗi bằng Badge.
 function Notice({ children, tone = 'success' }) {
   return <Badge variant={tone === 'error' ? 'destructive' : 'success'} className="w-full justify-start rounded-lg px-3 py-2">{children}</Badge>
 }
 
+// Ô thông tin nhỏ dùng để trình bày label và giá trị nổi bật.
 function InfoTile({ label, value }) {
   return (
     <Card className="bg-neutral-50">
@@ -654,6 +669,7 @@ function InfoTile({ label, value }) {
   )
 }
 
+// Khối trạng thái rỗng khi chưa có dữ liệu để hiển thị.
 function EmptyBlock({ title, description }) {
   return (
     <Card className="border-dashed bg-neutral-50">
