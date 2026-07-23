@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { Cart, Category, Order, Payment, Product, Shop, User } = require('../models');
 const ProductRepository = require('../repositories/ProductRepository');
 
+// Tổng hợp thống kê và dữ liệu gần đây cho dashboard admin.
 const getDashboard = async () => {
   const [
     users,
@@ -63,13 +64,16 @@ const getDashboard = async () => {
   };
 };
 
+// Liệt kê người dùng, loại bỏ passwordHash khỏi kết quả.
 const listUsers = () => User.findAll({
   attributes: ['id', 'fullName', 'email', 'phone', 'address', 'role', 'status', 'createdAt', 'updatedAt'],
   order: [['createdAt', 'DESC']],
 });
 
+// Lấy toàn bộ sản phẩm để admin giám sát theo shop.
 const listProducts = () => ProductRepository.listAllForAdmin();
 
+// Admin tạo tài khoản mới với mật khẩu đã mã hóa.
 const createUser = async (payload) => {
   const passwordHash = await bcrypt.hash(payload.password, 10);
   return User.create({
@@ -83,6 +87,7 @@ const createUser = async (payload) => {
   });
 };
 
+// Admin cập nhật tài khoản, chỉ đổi mật khẩu khi payload có password.
 const updateUser = async (userId, payload) => {
   const update = { ...payload };
   if (payload.password) {
@@ -96,6 +101,7 @@ const updateUser = async (userId, payload) => {
   });
 };
 
+// Khóa tài khoản bằng trạng thái LOCKED.
 const lockUser = async (userId) => {
   await User.update({ status: 'LOCKED' }, { where: { id: userId } });
   return User.findByPk(userId, {

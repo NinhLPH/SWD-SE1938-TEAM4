@@ -1,9 +1,11 @@
 const AppError = require('../utils/AppError');
 
+// Chuyển các route không tồn tại thành AppError 404.
 const notFound = (req, res, next) => {
   next(new AppError(`Route not found: ${req.method} ${req.originalUrl}`, 404, 'ROUTE_NOT_FOUND'));
 };
 
+// Chuẩn hóa mọi lỗi thành response JSON thống nhất.
 const errorHandler = (err, req, res, next) => {
   if (res.headersSent) {
     return next(err);

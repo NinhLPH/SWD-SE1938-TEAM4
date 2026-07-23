@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const UserRepository = require('../repositories/UserRepository');
 const AppError = require('../utils/AppError');
 
+// Tạo JWT chứa id và vai trò của người dùng.
 const signToken = (user) => jwt.sign(
   {
     sub: user._id.toString(),
@@ -12,6 +13,7 @@ const signToken = (user) => jwt.sign(
   { expiresIn: process.env.JWT_EXPIRES_IN || '7d' },
 );
 
+// Loại bỏ passwordHash trước khi trả thông tin user ra ngoài.
 const sanitizeUser = (user) => ({
   id: user._id,
   fullName: user.fullName,
@@ -22,6 +24,7 @@ const sanitizeUser = (user) => ({
   status: user.status,
 });
 
+// Đăng ký tài khoản mới, mã hóa mật khẩu và cấp token.
 const register = async (payload) => {
   const existing = await UserRepository.findByEmail(payload.email);
 
@@ -45,6 +48,7 @@ const register = async (payload) => {
   };
 };
 
+// Kiểm tra thông tin đăng nhập và cấp token nếu hợp lệ.
 const login = async ({ email, password }) => {
   const user = await UserRepository.findByEmail(email);
 

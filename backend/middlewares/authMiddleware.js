@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
 
+// Xác thực Bearer token và gắn user đang hoạt động vào request.
 const authenticate = async (req, res, next) => {
   try {
     const header = req.headers.authorization || '';
@@ -28,6 +29,7 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+// Kiểm tra user hiện tại có thuộc một trong các role được phép hay không.
 const authorize = (...roles) => (req, res, next) => {
   if (!req.user) {
     return next(new AppError('Authentication is required', 401, 'AUTH_REQUIRED'));

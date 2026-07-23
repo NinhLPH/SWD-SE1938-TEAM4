@@ -5,13 +5,16 @@ const { Cart, CartItem, Category, InventoryTransaction, Order, OrderItem, Paymen
 
 dotenv.config();
 
+// Chuyển tên danh mục thành slug đơn giản dùng cho dữ liệu mẫu.
 const slugify = (value) => value
   .toLowerCase()
   .replace(/[^a-z0-9]+/g, '-')
   .replace(/(^-|-$)/g, '');
 
+// Tạo URL ảnh Unsplash cho sản phẩm mẫu.
 const image = (id) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&q=80`;
 
+// Tạo đơn hàng mẫu kèm snapshot item.
 const createOrder = async ({ user, shop, items, paymentMethod, paymentStatus, status }) => {
   const orderItems = items.map(({ product, quantity }) => ({
     productId: product._id,
@@ -44,6 +47,7 @@ const createOrder = async ({ user, shop, items, paymentMethod, paymentStatus, st
   return Order.findByPk(order._id, { include: [{ model: OrderItem, as: 'items' }] });
 };
 
+// Reset database và nạp dữ liệu mẫu cho tài khoản, shop, sản phẩm, giỏ hàng, đơn hàng.
 const seed = async () => {
   await connectDB();
   await connectDB.sequelize.sync({ force: true });

@@ -7,6 +7,7 @@ const idField = {
   defaultValue: () => crypto.randomBytes(12).toString('hex'),
 };
 
+// Bổ sung _id và toJSON tương thích với dữ liệu frontend đang dùng.
 const withLegacyJson = (model) => {
   if (!Object.getOwnPropertyDescriptor(model.prototype, '_id')) {
     Object.defineProperty(model.prototype, '_id', {

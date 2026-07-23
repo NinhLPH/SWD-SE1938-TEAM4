@@ -24,6 +24,7 @@ const sequelize = new Sequelize(isTest ? 'sqlite::memory:' : database, username,
   },
 });
 
+// Tạo database SQL Server nếu chưa tồn tại, bỏ qua khi chạy test sqlite.
 const ensureSqlServerDatabase = async () => {
   if (isTest) return;
 
@@ -47,6 +48,7 @@ const ensureSqlServerDatabase = async () => {
   }
 };
 
+// Khởi tạo model, kết nối database và đồng bộ schema khi cấu hình cho phép.
 const connectDB = async () => {
   require('../models');
   await ensureSqlServerDatabase();

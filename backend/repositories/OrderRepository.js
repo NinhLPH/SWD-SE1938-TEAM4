@@ -6,6 +6,7 @@ const includeDetails = [
   { model: Shop, as: 'shop', attributes: ['id', 'name'] },
 ];
 
+// Tạo nhiều đơn và item chi tiết tương ứng trong cùng transaction.
 const createMany = async (orders, options = {}) => Promise.all(orders.map(async (payload) => {
   const order = await Order.create({
     userId: payload.user,
@@ -33,18 +34,21 @@ const createMany = async (orders, options = {}) => Promise.all(orders.map(async 
   });
 }));
 
+// Tìm các đơn hàng của một khách hàng.
 const findByUser = (userId) => Order.findAll({
   where: { userId },
   include: includeDetails,
   order: [['createdAt', 'DESC']],
 });
 
+// Tìm một đơn theo id và userId để kiểm quyền khách hàng.
 const findCustomerOrderById = (userId, orderId, options = {}) => Order.findOne({
   where: { id: orderId, userId },
   include: includeDetails,
   transaction: options.transaction,
 });
 
+// Tìm các đơn thuộc một shop, kèm thông tin khách hàng.
 const findByShop = (shopId) => Order.findAll({
   where: { shopId },
   include: [
@@ -54,17 +58,20 @@ const findByShop = (shopId) => Order.findAll({
   order: [['createdAt', 'DESC']],
 });
 
+// Tìm đơn theo id kèm danh sách item.
 const findById = (orderId, options = {}) => Order.findByPk(orderId, {
   include: [{ model: OrderItem, as: 'items' }],
   transaction: options.transaction,
 });
 
+// Tìm nhiều đơn theo danh sách id.
 const findByIds = (orderIds, options = {}) => Order.findAll({
   where: { id: { [Op.in]: orderIds } },
   include: [{ model: OrderItem, as: 'items' }],
   transaction: options.transaction,
 });
 
+// Cập nhật trạng thái thanh toán của một đơn và trả lại đơn mới nhất.
 const updatePaymentStatusById = async (orderId, paymentStatus, options = {}) => {
   await Order.update(
     { paymentStatus },
@@ -76,6 +83,7 @@ const updatePaymentStatusById = async (orderId, paymentStatus, options = {}) => 
   return findById(orderId, options);
 };
 
+// Cập nhật trạng thái thanh toán cho nhiều đơn cùng lúc.
 const updatePaymentStatusMany = (orderIds, paymentStatus, options = {}) => Order.update(
   { paymentStatus },
   {

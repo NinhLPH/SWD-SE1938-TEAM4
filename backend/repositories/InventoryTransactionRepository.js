@@ -1,8 +1,10 @@
 const { Op } = require('sequelize');
 const { InventoryTransaction, Product, User } = require('../models');
 
+// Ghi nhận một giao dịch tồn kho.
 const create = (data, options = {}) => InventoryTransaction.create(data, options);
 
+// Liệt kê lịch sử tồn kho của các sản phẩm thuộc owner.
 const listForOwner = ({ ownerId, productId, page, limit }) => {
   const offset = (page - 1) * limit;
   const productWhere = {

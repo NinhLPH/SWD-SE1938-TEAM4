@@ -6,10 +6,13 @@ const includes = [
   { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
 ];
 
+// Tạo bản ghi sản phẩm mới.
 const create = (data, options = {}) => Product.create(data, options);
 
+// Tìm sản phẩm theo id kèm shop và category.
 const findById = (id, options = {}) => Product.findByPk(id, { include: includes, ...options });
 
+// Tìm sản phẩm thuộc owner và chưa bị xóa mềm.
 const findOwnerProductById = (id, ownerId, options = {}) => Product.findOne({
   where: {
     id,
@@ -19,6 +22,7 @@ const findOwnerProductById = (id, ownerId, options = {}) => Product.findOne({
   ...options,
 });
 
+// Cập nhật sản phẩm theo id rồi trả lại dữ liệu mới kèm category.
 const updateById = async (id, data, options = {}) => {
   const product = await Product.findByPk(id);
   if (!product) return null;
@@ -26,6 +30,7 @@ const updateById = async (id, data, options = {}) => {
   return Product.findByPk(id, { include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'slug'] }] });
 };
 
+// Liệt kê sản phẩm của một shop với phân trang.
 const listByShop = ({ shopId, page, limit }) => {
   const offset = (page - 1) * limit;
   const where = { shopId, status: { [Op.ne]: 'DELETED' } };
@@ -42,6 +47,7 @@ const listByShop = ({ shopId, page, limit }) => {
   ]);
 };
 
+// Tìm sản phẩm ACTIVE theo nhiều bộ lọc catalog và sort.
 const searchAvailable = async ({ keyword, categoryId, shopId, minPriceVnd, maxPriceVnd, inStock, minRating, page, limit, sort }) => {
   const offset = (page - 1) * limit;
   const where = { status: 'ACTIVE' };
@@ -84,11 +90,13 @@ const searchAvailable = async ({ keyword, categoryId, shopId, minPriceVnd, maxPr
   return [items, total];
 };
 
+// Tìm sản phẩm đang bán theo id.
 const findAvailableById = (id) => Product.findOne({
   where: { id, status: 'ACTIVE' },
   include: includes,
 });
 
+// Trừ tồn kho theo điều kiện đủ hàng để tránh oversell trong checkout.
 const deductStockAtomic = async (productId, quantity, options = {}) => {
   const [affectedCount] = await Product.update(
     { stockQuantity: Product.sequelize.literal(`stock_quantity - ${Number(quantity)}`) },
@@ -105,6 +113,7 @@ const deductStockAtomic = async (productId, quantity, options = {}) => {
   return { modifiedCount: affectedCount };
 };
 
+// Hoàn tồn kho cho nhiều item khi đơn bị hủy.
 const restoreStockMany = (items, options = {}) => Promise.all(items.map((item) => Product.increment(
   { stockQuantity: Number(item.quantity) },
   {
@@ -113,6 +122,7 @@ const restoreStockMany = (items, options = {}) => Promise.all(items.map((item) =
   },
 )));
 
+// Lấy toàn bộ sản phẩm kèm shop, category và người tạo cho admin.
 const listAllForAdmin = () => Product.findAll({
   include: [
     { model: Shop, as: 'shop', attributes: ['id', 'name'] },

@@ -1,3 +1,4 @@
+// Error nghiệp vụ có statusCode/code để middleware trả response đúng chuẩn.
 class AppError extends Error {
   constructor(message, statusCode = 500, code = 'INTERNAL_ERROR') {
     super(message);

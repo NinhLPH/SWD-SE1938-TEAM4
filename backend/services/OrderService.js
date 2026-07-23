@@ -6,6 +6,7 @@ const PaymentService = require('./PaymentService');
 const ShopRepository = require('../repositories/ShopRepository');
 const AppError = require('../utils/AppError');
 
+// Gom các item trong giỏ theo shop để checkout tách thành nhiều đơn.
 const groupItemsByShop = (items) => {
   const groups = new Map();
 
@@ -43,6 +44,7 @@ const groupItemsByShop = (items) => {
   return Array.from(groups.values());
 };
 
+// Tạo đơn từ giỏ hàng trong transaction: kiểm tồn, trừ tồn, tạo payment và xóa giỏ.
 const createOrdersFromCart = async (userId, payload, transaction) => {
   const options = { transaction };
   const cart = await CartRepository.findByUserIdWithProducts(userId, options);
@@ -92,10 +94,13 @@ const createOrdersFromCart = async (userId, payload, transaction) => {
   };
 };
 
+// Bọc toàn bộ checkout trong transaction SQL Server.
 const checkout = (userId, payload) => connectDB.sequelize.transaction((transaction) => createOrdersFromCart(userId, payload, transaction));
 
+// Liệt kê đơn hàng của khách hàng.
 const listCustomerOrders = (userId) => OrderRepository.findByUser(userId);
 
+// Lấy chi tiết đơn hàng và kiểm tra quyền sở hữu của khách hàng.
 const getCustomerOrderDetail = async (userId, orderId) => {
   const order = await OrderRepository.findCustomerOrderById(userId, orderId);
 
@@ -106,6 +111,7 @@ const getCustomerOrderDetail = async (userId, orderId) => {
   return order;
 };
 
+// Liệt kê các đơn thuộc shop đã duyệt của shop owner.
 const listShopOrders = async (ownerId) => {
   const shop = await ShopRepository.findApprovedByOwner(ownerId);
 
@@ -127,6 +133,7 @@ const allowedTransitions = {
 
 const customerCancelableStatuses = ['PENDING'];
 
+// Hủy đơn hợp lệ, hoàn tồn kho và cập nhật trạng thái thanh toán nếu còn pending.
 const applyCancellation = async (order, transaction) => {
   if (!customerCancelableStatuses.includes(order.status)) {
     throw new AppError('Order can only be cancelled while pending', 409, 'ORDER_CANCEL_NOT_ALLOWED');
@@ -142,6 +149,7 @@ const applyCancellation = async (order, transaction) => {
   return OrderRepository.findById(order._id, { transaction });
 };
 
+// Shop owner chuyển trạng thái đơn theo các bước hợp lệ.
 const updateShopOrderStatus = async (ownerId, orderId, nextStatus) => {
   const shop = await ShopRepository.findApprovedByOwner(ownerId);
 
@@ -170,6 +178,7 @@ const updateShopOrderStatus = async (ownerId, orderId, nextStatus) => {
   });
 };
 
+// Khách hàng hủy đơn của mình trong transaction để hoàn tồn kho nhất quán.
 const cancelCustomerOrder = (userId, orderId) => connectDB.sequelize.transaction(async (transaction) => {
   const order = await OrderRepository.findById(orderId, { transaction });
 

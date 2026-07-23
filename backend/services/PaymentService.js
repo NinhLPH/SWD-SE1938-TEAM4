@@ -12,6 +12,7 @@ const VIETQR_CONFIG = {
   template: process.env.VIETQR_TEMPLATE || 'compact2',
 };
 
+// Tạo URL ảnh VietQR từ cấu hình ngân hàng và nội dung chuyển khoản.
 const buildVietQrImageUrl = ({ amountVnd, addInfo }) => {
   const query = new URLSearchParams({
     amount: String(amountVnd),
@@ -25,6 +26,7 @@ const buildVietQrImageUrl = ({ amountVnd, addInfo }) => {
   return `https://img.vietqr.io/image/${VIETQR_CONFIG.bankId}-${VIETQR_CONFIG.accountNo}-${VIETQR_CONFIG.template}.png?${query.toString()}`;
 };
 
+// Đóng gói thông tin chuyển khoản VietQR trả về cho frontend.
 const buildVietQrTransfer = ({ amountVnd, addInfo }) => ({
   bankId: VIETQR_CONFIG.bankId,
   bankName: VIETQR_CONFIG.bankName,
@@ -36,6 +38,7 @@ const buildVietQrTransfer = ({ amountVnd, addInfo }) => ({
   qrImageUrl: buildVietQrImageUrl({ amountVnd, addInfo }),
 });
 
+// Tạo bản ghi thanh toán cho các đơn trong cùng một lần checkout.
 const createCheckoutPayment = async ({ userId, orders, paymentMethod, transaction }) => {
   const amountVnd = orders.reduce((sum, order) => sum + order.totalAmountVnd, 0);
   const isCod = paymentMethod === 'COD';
@@ -63,20 +66,25 @@ const createCheckoutPayment = async ({ userId, orders, paymentMethod, transactio
   return paymentJson;
 };
 
+// Hash payload callback để lưu dấu vết chống xử lý trùng.
 const hashPayload = (payload) => crypto
   .createHash('sha256')
   .update(JSON.stringify(payload))
   .digest('hex');
 
+// Ký callback mock bằng secret nội bộ.
 const signMockCallback = ({ transactionId, status }) => crypto
   .createHash('sha256')
   .update(`${transactionId}:${status}:${process.env.PAYMENT_CALLBACK_SECRET || 'dev-payment-secret'}`)
   .digest('hex');
 
+// Kiểm tra chữ ký callback mock trước khi xử lý.
 const verifyMockCallback = (payload) => payload.signature === signMockCallback(payload);
 
+// Xác định payment có thuộc nhóm thanh toán online cần xác nhận hay không.
 const isOnlinePayment = (payment) => payment && ['MOCK', 'VIETQR'].includes(payment.provider);
 
+// Xử lý callback mock, chống trùng event và cập nhật trạng thái đơn liên quan.
 const handleMockCallback = async (payload) => {
   if (!verifyMockCallback(payload)) {
     throw new AppError('Invalid payment callback signature', 401, 'INVALID_PAYMENT_SIGNATURE');
@@ -121,6 +129,7 @@ const handleMockCallback = async (payload) => {
   };
 };
 
+// Người dùng xác nhận thanh toán mock và tạo callback nội bộ hợp lệ.
 const confirmMockPaymentForUser = async (userId, transactionId) => {
   const payment = await PaymentRepository.findByTransactionId(transactionId);
 
@@ -152,6 +161,7 @@ const confirmMockPaymentForUser = async (userId, transactionId) => {
   });
 };
 
+// Khách hàng ghi nhận đã chuyển khoản VietQR để shop owner kiểm tra.
 const submitVietQrTransferForUser = async (userId, transactionId) => {
   const payment = await PaymentRepository.findByTransactionId(transactionId);
 
@@ -188,6 +198,7 @@ const submitVietQrTransferForUser = async (userId, transactionId) => {
   };
 };
 
+// Shop owner xác nhận một đơn VietQR đã thanh toán và cập nhật payment tổng nếu đủ điều kiện.
 const confirmVietQrPaymentForShopOwner = async (ownerId, orderId) => {
   const shop = await ShopRepository.findApprovedByOwner(ownerId);
 

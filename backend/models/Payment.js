@@ -2,6 +2,7 @@ const { DataTypes } = require('sequelize');
 const connectDB = require('../config/db');
 const { idField, withLegacyJson } = require('./modelUtils');
 
+// Parse cột TEXT dạng JSON array, trả mảng rỗng khi dữ liệu không hợp lệ.
 const parseJsonArray = (value) => {
   if (!value) return [];
   if (Array.isArray(value)) return value;

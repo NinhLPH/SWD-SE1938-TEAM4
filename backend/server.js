@@ -23,6 +23,7 @@ const configuredCorsOrigins = (process.env.CORS_ORIGIN || '')
   .map((origin) => origin.trim())
   .filter(Boolean);
 const corsOrigins = new Set([...defaultCorsOrigins, ...configuredCorsOrigins]);
+// Cho phép mọi port localhost/127.0.0.1 trong môi trường dev.
 const isLocalDevOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
 
 app.use(cors({
@@ -58,6 +59,7 @@ app.get(/^(?!\/api).*/, (req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
+// Kết nối database trước rồi mới mở HTTP server.
 const startServer = async () => {
   await connectDB();
   app.listen(PORT, () => {

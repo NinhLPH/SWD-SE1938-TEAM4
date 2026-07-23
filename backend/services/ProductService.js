@@ -4,6 +4,7 @@ const InventoryTransactionRepository = require('../repositories/InventoryTransac
 const connectDB = require('../config/db');
 const AppError = require('../utils/AppError');
 
+// Đảm bảo shop owner có shop đã được duyệt trước khi thao tác sản phẩm.
 const ensureOwnerShop = async (userId) => {
   const shop = await ShopRepository.findApprovedByOwner(userId);
 
@@ -14,6 +15,7 @@ const ensureOwnerShop = async (userId) => {
   return shop;
 };
 
+// Tạo sản phẩm mới gắn với shop của owner.
 const createProduct = async (ownerId, payload) => {
   const shop = await ensureOwnerShop(ownerId);
 
@@ -31,6 +33,7 @@ const createProduct = async (ownerId, payload) => {
   });
 };
 
+// Liệt kê sản phẩm của shop owner kèm metadata phân trang.
 const listMyProducts = async (ownerId, query) => {
   const shop = await ensureOwnerShop(ownerId);
   const page = query.page || 1;
@@ -48,6 +51,7 @@ const listMyProducts = async (ownerId, query) => {
   };
 };
 
+// Cập nhật sản phẩm sau khi xác nhận owner sở hữu sản phẩm đó.
 const updateMyProduct = async (ownerId, productId, payload) => {
   const product = await ProductRepository.findOwnerProductById(productId, ownerId);
 
@@ -62,6 +66,7 @@ const updateMyProduct = async (ownerId, productId, payload) => {
   return ProductRepository.updateById(product._id, update);
 };
 
+// Nhập kho trong transaction để cập nhật tồn và ghi lịch sử nhất quán.
 const addStock = (ownerId, productId, payload) => connectDB.sequelize.transaction(async (transaction) => {
   const product = await ProductRepository.findOwnerProductById(productId, ownerId, {
     transaction,
@@ -93,6 +98,7 @@ const addStock = (ownerId, productId, payload) => connectDB.sequelize.transactio
   };
 });
 
+// Lấy lịch sử nhập kho của shop owner theo trang và tùy chọn sản phẩm.
 const listStockTransactions = async (ownerId, query) => {
   const page = query.page || 1;
   const limit = query.limit || 20;
@@ -114,6 +120,7 @@ const listStockTransactions = async (ownerId, query) => {
   };
 };
 
+// Xóa mềm sản phẩm bằng cách chuyển trạng thái sang DELETED.
 const softDeleteMyProduct = async (ownerId, productId) => {
   const product = await ProductRepository.findOwnerProductById(productId, ownerId);
 
